@@ -16,6 +16,7 @@
 * Search for food
 * Go to previously seen food
 * Avoid zombies (should have high precedence)
+  - Different behavior based on zombie type?
 
 ### Implementation notes
 * Basic vision capabilities using color thresholding (Kaleb)
