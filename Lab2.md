@@ -10,6 +10,10 @@
 * DAMN to suggest which general behavior to do, such as going to this place or that
 * Motor schema to determine the exact action
 
+### Sensor notes
+* Option 1: use LIDAR, GPS or receiver, and a camera maybe?
+* Option 2: use GPS, receiver, and a high res camera
+
 ### Basic behavior ideas
 * Explore + Map
   - Default behavior
