@@ -20,7 +20,7 @@
  *                robot
  */
 
-#include <webots/keyboard.h>            
+#include <webots/keyboard.h>
 #include <webots/robot.h>
 #include <webots/supervisor.h>
 
@@ -76,7 +76,7 @@ void rotate_robot(int angle)
     if (angle == 330) { rotation[0] = 0.933; rotation[1] = 0.254; rotation[2] = 0.257; rotation[3] = -1.64; }
     if (angle == 345) { rotation[0] = 0.982; rotation[1] = 0.133; rotation[2] = 0.137; rotation[3] = -1.59; }
     wb_supervisor_field_set_sf_rotation(rot_field,rotation);
-    robot_angle = angle;	
+    robot_angle = angle;
 }
 
 
@@ -94,35 +94,122 @@ void stop()
 ///////////////////////// CHANGE CODE BELOW HERE ONLY ////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+typedef struct RgbColor
+{
+    float r;
+    float g;
+    float b;
+} RgbColor;
 
+typedef struct HsvColor
+{
+    float h;
+    float s;
+    float v;
+} HsvColor;
 
+float
+mmin(float a, float b, float c)
+{
+  a = fminf(a, b);
+  c = fminf(a, c);
+  return c;
+}
+
+float
+mmax(float a, float b, float c)
+{
+  a = fmaxf(a, b);
+  c = fmaxf(a, c);
+  return c;
+}
+
+void
+RgbToHsv( RgbColor  * rgb, HsvColor * hsv)
+/* r, g, and b should be in range [0, 1]*/
+{
+  // HsvColor hsv;
+  float min, max, delta;
+
+  min = mmin(rgb->r, rgb->g, rgb->b);
+  max = mmax(rgb->r, rgb->g, rgb->b);
+
+  hsv->v = max;
+  delta = max - min;
+
+  if (max != 0)
+    hsv->s = delta / max;
+  else {
+    hsv->s = 0;
+    hsv->h = -1;
+    return;
+  }
+
+  if (rgb->r == max)
+    hsv->h = (rgb->g - rgb->b) / delta;
+  else if (rgb->g == max)
+    hsv->h = 2 + (rgb->b - rgb->r) / delta;
+  else
+    hsv->h = 4 + (rgb->r - rgb->g) / delta;
+  hsv->h *= 60;
+
+  if (hsv->h < 0)
+    hsv->h += 360;
+}
 
 void robot_control()
 {
 	////////////// TO ROTATE THE ROBOT (BETWEEN 0 - 345) WITH 15 DEGREE INTERVALS ///////////////
-	rotate_robot(45);
-	rotate_robot(255);
+	//rotate_robot(45);
+	//rotate_robot(255);
 	/////////////////////////////////////////////////////////////////////////////////////////////
-	
+
 	////////////// TO MOVE ROBOT FORWARD AND TO STOP IT /////////////////////////////////////////
-	go_forward();
-	stop();
+	// go_forward();
+	// stop();
 	/////////////////////////////////////////////////////////////////////////////////////////////
-	
+
 	////////////// TO GET RGB FROM THE CAMERA ///////////////////////////////////////////////////
+  RgbColor rgb;
+  HsvColor hsv;
+  int ymin = 64;
+  int ymax = -1;
+
 	const unsigned char *image = wb_camera_get_image(3);
-	for (int x = 0; x < 128; x++)
-	{
-		for (int y = 0; y < 64; y++) 
-		{
-			int r = wb_camera_image_get_red(image, 64, x, y);
-			int g = wb_camera_image_get_green(image, 64, x, y);
-			int b = wb_camera_image_get_blue(image, 64, x, y);
-			//printf("red=%d, green=%d, blue=%d", r, g, b);
-		}
-	}
+  for (int y = 0; y < 64; y++) {
+    for (int x = 0; x < 128; x++) {
+      int r = wb_camera_image_get_red(image, 128, x, y);
+      int g = wb_camera_image_get_green(image, 128, x, y);
+      int b = wb_camera_image_get_blue(image, 128, x, y);
+
+      // printf("|%d %d %d|", r, g, b);
+
+      rgb.r = (float) r / 255.0;
+      rgb.g = (float) g / 255.0;
+      rgb.b = (float) b / 255.0;
+
+      RgbToHsv(&rgb, &hsv);
+
+      if (hsv.h <= 225.0 && hsv.h >= 200.0 && hsv.s >= 0.75) {
+        ymin = fmin(ymin, y);
+        ymax = fmax(ymax, y);
+      }
+
+
+    }
+
+    // putchar('\n');
+  }
+
+  printf("%d, %d ", ymin, ymax);
+
+  if (ymax != ymin) {
+    float d_estimate = 5 * 128 / (ymax-ymin);
+
+    printf("%f\n", d_estimate);
+  }
 	/////////////////////////////////////////////////////////////////////////////////////////////
-	
+
 }
 
 
@@ -131,12 +218,12 @@ void robot_control()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
 
   struct Robot robot_info = {100,100};
   wb_robot_init();
-  
+
   wb_camera_enable(3,1);
 
   base_init();
@@ -149,25 +236,24 @@ int main(int argc, char **argv)
   int pc = 0;
   wb_keyboard_enable(TIME_STEP);
   int timer = 0;
-  
+
   WbNodeRef robot_node = wb_supervisor_node_get_from_def("Youbot");
   WbFieldRef trans_field = wb_supervisor_node_get_field(robot_node, "translation");
-  
+
   get_all_berry_pos();
-  
+
   int robot_not_dead = 1;
-  
+
   //////////////////////////////////////////////////////////////////////////////////////////////////////////
   ///////////////////////// DECLARE LOCAL VARIABLES HERE ONLY //////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////////////////////
-    
-    
-    
+
+
   //////////////////////////////////////////////////////////////////////////////////////////////////////////
   ///////////////////////// CHANGE CODE ABOVE HERE ONLY ////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////////////////////
-  
-  while (robot_not_dead == 1) 
+
+  while (robot_not_dead == 1)
   {
 	if (robot_info.health < 0)
     {
@@ -175,7 +261,7 @@ int main(int argc, char **argv)
 		printf("ROBOT IS OUT OF HEALTH\n");
 	}
 	if (timer % 8 == 0)
-	{  
+	{
 		const double *trans = wb_supervisor_field_get_sf_vec3f(trans_field);
 		check_berry_collision(&robot_info, trans[0], trans[2]);
 		check_zombie_collision(&robot_info, trans[0], trans[2]);
@@ -184,27 +270,27 @@ int main(int argc, char **argv)
     {
         update_robot(&robot_info);
         timer = 0;
-        
+
     }
     step();
 
     int c = keyboard(pc);
     pc = c;
     timer=timer+1;
-    
-    
+
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////// CHANGE CODE BELOW HERE ONLY ////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
-    
+
     // this is called everytime step.
-    robot_control(); 
+    robot_control();
     go_forward();
-    
-    
-    
-    
-    
+
+
+
+
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////// CHANGE CODE ABOVE HERE ONLY ////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
