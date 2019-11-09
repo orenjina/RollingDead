@@ -130,21 +130,21 @@ int round_to_angle_setting(int angle)
 
 Vector vector_sum(Vector * vectors)
 // must be null-terminated
+// also frees the input vectors along the way
 {
-  Vector * to_add = vectors;
   Vector sum = malloc(sizeof(struct vector));
   sum->x = 0;
   sum->y = 0;
 
-  while (to_add != NULL) {
-    sum->x += to_add[0]->x;
-    sum->y += to_add[0]->y;
-    free(to_add);
-    to_add++;
+  while (*vectors != NULL) {
+    sum->x += (*vectors)->x;
+    sum->y += (*vectors)->y;
+    free(*vectors);
+    vectors++;
   }
-
   return sum;
 }
+
 
 ////////////////
 
@@ -167,8 +167,13 @@ void arbiter(RobotPos robot, Pos obstacle)
   Vector v_avoid_obstacle = avoid_single_obstacle(robot, obstacle);
 
 
+  // collect vectors
+  Vector v_list[2];
+  v_list[0] = v_avoid_obstacle;
+  v_list[1] = NULL;
+
   // arbitration
-  Vector v_output = v_avoid_obstacle;
+  Vector v_output = vector_sum(v_list);
 
   // calculate output angle
   float angle = acos((v_output->x + v_output->y) / sqrt(v_output->x * v_output->x  + v_output->y * v_output->y));
@@ -181,10 +186,8 @@ void arbiter(RobotPos robot, Pos obstacle)
     output_angle = 0;
   else if (output_angle < 0)
     output_angle += 360;
-  else if (output_angle > 360)
-    output_angle -= 360;
 
-  printf("%d\n", output_angle);
+  // printf("%d\n", output_angle);
   free(v_output);
 
   // finally, execute command
