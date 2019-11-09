@@ -100,12 +100,110 @@ void stop()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////// CHANGE CODE BELOW HERE ONLY ////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define AVOID_OBSTACLE_W (1.0)
 
 
+typedef struct vector {
+  float x;
+  float y;
+} * Vector;
+
+typedef struct position {
+  int x;
+  int y;
+} Pos;
+
+typedef struct robot_position {
+  int x;
+  int y;
+  // int angle;
+} RobotPos;
+
+// utility functions
+int round_to_angle_setting(int angle)
+{
+  int remainder = angle % 15;
+  if (remainder == 0)
+    return angle;
+  return angle + 15 - remainder;
+}
+
+Vector vector_sum(Vector * vectors)
+// must be null-terminated
+{
+  Vector * to_add = vectors;
+  Vector sum = malloc(sizeof(struct vector));
+  sum->x = 0;
+  sum->y = 0;
+
+  while (to_add != NULL) {
+    sum->x += to_add[0]->x;
+    sum->y += to_add[0]->y;
+    free(to_add);
+    to_add++;
+  }
+
+  return sum;
+}
+
+////////////////
+
+
+Vector avoid_single_obstacle(RobotPos robot, Pos obstacle)
+// currently assuming obstacle pos is absolute - could also be relative too
+{
+  Vector v;
+  v = malloc(sizeof(struct vector)); // must be freed
+
+  v->x = robot.x - obstacle.x;
+  v->y = robot.y - obstacle.y;
+
+  return v;
+}
+
+void arbiter(RobotPos robot, Pos obstacle)
+{
+  // calculate behavior output vectors here
+  Vector v_avoid_obstacle = avoid_single_obstacle(robot, obstacle);
+
+
+  // arbitration
+  Vector v_output = v_avoid_obstacle;
+
+  // calculate output angle
+  float angle = acos((v_output->x + v_output->y) / sqrt(v_output->x * v_output->x  + v_output->y * v_output->y));
+
+  // convert to degrees
+  angle = angle / M_PI * 180;
+
+  int output_angle = round_to_angle_setting(angle);
+  if (output_angle == 360)
+    output_angle = 0;
+  else if (output_angle < 0)
+    output_angle += 360;
+  else if (output_angle > 360)
+    output_angle -= 360;
+
+  printf("%d\n", output_angle);
+  free(v_output);
+
+  // finally, execute command
+  stop();
+  rotate_robot(output_angle);
+}
 
 
 void robot_control()
 {
+  RobotPos current_pos;
+  current_pos.x = 0;
+  current_pos.y = 0;
+
+  Pos obs;
+  obs.x = 0;
+  obs.y = 1;
+
+  arbiter(current_pos, obs);
 	////////////// TO ROTATE THE ROBOT (BETWEEN 0 - 345) WITH 15 DEGREE INTERVALS ///////////////
 	//rotate_robot(45);
 	//rotate_robot(255);
