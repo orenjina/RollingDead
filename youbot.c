@@ -102,7 +102,6 @@ void stop()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define AVOID_OBSTACLE_W (1.0)
 
-
 typedef struct vector {
   float x;
   float y;
@@ -128,6 +127,7 @@ int round_to_angle_setting(int angle)
   return angle + 15 - remainder;
 }
 
+// Adds the given array of vectors
 Vector vector_sum(Vector * vectors)
 // must be null-terminated
 // also frees the input vectors along the way
@@ -148,7 +148,7 @@ Vector vector_sum(Vector * vectors)
 
 ////////////////
 
-
+// Return vector computed by robot going directly away from the obstacle
 Vector avoid_single_obstacle(RobotPos robot, Pos obstacle)
 // currently assuming obstacle pos is absolute - could also be relative too
 {
@@ -161,16 +161,44 @@ Vector avoid_single_obstacle(RobotPos robot, Pos obstacle)
   return v;
 }
 
-void arbiter(RobotPos robot, Pos obstacle)
+// TODO: Add a variation with mutliple inputs
+// Return vector computed by robot going directly away from the zombie,
+// but a multiplying factor is at work as well.
+Vector avoid_zombie(RobotPos robot, Pos zombie, int factor)
+{
+  Vector v;
+  v = malloc(sizeof(struct vector)); // must be freed
+
+  v->x = (robot.x - zombie.x) * factor;
+  v->y = (robot.y - zombie.y) * factor;
+
+  return v;
+}
+
+// TODO: Add a variation with mutliple inputs
+// Return vector computed by robot going directly to the food
+Vector looking_for_food(RobotPos robot, Pos food, int factor)
+{
+  return avoid_zombie(robot, food, -1 * factor);
+}
+
+// Given the parameters, execute commands for the actions
+void arbiter(RobotPos robot, Pos obstacle, Pos zombie, Pos food)
 {
   // calculate behavior output vectors here
   Vector v_avoid_obstacle = avoid_single_obstacle(robot, obstacle);
-
+  // Tweak factor based on health, type of zombie, and proximity
+  // The tweaking might happen elsewhere
+  Vector v_avoid_zombie = avoid_zombie(robot, zombie, 2);
+  // Change factor when low energy, decrease when high energy
+  Vector v_find_food = looking_for_food(robot, food, -1);
 
   // collect vectors
-  Vector v_list[2];
+  Vector v_list[4];
   v_list[0] = v_avoid_obstacle;
-  v_list[1] = NULL;
+  v_list[1] = v_avoid_zombie;
+  v_list[2] = v_find_food;
+  v_list[3] = NULL;
 
   // arbitration
   Vector v_output = vector_sum(v_list);
@@ -206,7 +234,15 @@ void robot_control()
   obs.x = 0;
   obs.y = 1;
 
-  arbiter(current_pos, obs);
+  Pos zombie;
+  zombie.x = -2;
+  zombie.y = -3;
+
+  Pos food;
+  food.x = 2;
+  food.y = 2;
+
+  arbiter(current_pos, obs, zombie, food);
 	////////////// TO ROTATE THE ROBOT (BETWEEN 0 - 345) WITH 15 DEGREE INTERVALS ///////////////
 	//rotate_robot(45);
 	//rotate_robot(255);
@@ -339,13 +375,6 @@ int main(int argc, char **argv)
    //      printf("Communicating: received \"%s\"\n", buffer);
    //  	wb_receiver_next_packet(rec);
    //  }
-
-
-
-
-
-
-
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////// CHANGE CODE ABOVE HERE ONLY ////////////////////////////////////////////////////
