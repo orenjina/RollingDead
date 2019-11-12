@@ -110,7 +110,7 @@ typedef struct vector {
 typedef struct position {
   int x;
   int y;
-} Pos;
+} Pos, *Posi;
 
 typedef struct robot_position {
   int x;
@@ -161,17 +161,21 @@ Vector avoid_single_obstacle(RobotPos robot, Pos obstacle)
   return v;
 }
 
-// TODO: Add a variation with mutliple inputs
 // Return vector computed by robot going directly away from the zombie,
 // but a multiplying factor is at work as well.
-Vector avoid_zombie(RobotPos robot, Pos zombie, int factor)
+Vector avoid_zombie(RobotPos robot, Posi* zombie, int factor)
 {
   Vector v;
   v = malloc(sizeof(struct vector)); // must be freed
 
-  v->x = (robot.x - zombie.x) * factor;
-  v->y = (robot.y - zombie.y) * factor;
+  v->x = 0;
+  v->y = 0;
 
+  while(*zombie != NULL) {
+    v->x += (robot.x - (*zombie)->x) * factor;
+    v->y += (robot.y - (*zombie)->y) * factor;
+    zombie++;
+  }
   return v;
 }
 
@@ -179,11 +183,17 @@ Vector avoid_zombie(RobotPos robot, Pos zombie, int factor)
 // Return vector computed by robot going directly to the food
 Vector looking_for_food(RobotPos robot, Pos food, int factor)
 {
-  return avoid_zombie(robot, food, -1 * factor);
+  Vector v;
+  v = malloc(sizeof(struct vector)); // must be freed
+
+  v->x = (robot.x - food.x) * factor;
+  v->y = (robot.y - food.y) * factor;
+
+  return v;
 }
 
 // Given the parameters, execute commands for the actions
-void arbiter(RobotPos robot, Pos obstacle, Pos zombie, Pos food)
+void arbiter(RobotPos robot, Pos obstacle, Posi* zombie, Pos food)
 {
   // calculate behavior output vectors here
   Vector v_avoid_obstacle = avoid_single_obstacle(robot, obstacle);
@@ -234,10 +244,16 @@ void robot_control()
   obs.x = 0;
   obs.y = 1;
 
-  Pos zombie;
-  zombie.x = -2;
-  zombie.y = -3;
+  Posi zombie[3];
+  zombie[0]->x = -2;
+  zombie[0]->y = -3;
 
+  zombie[1]->x = 0;
+  zombie[1]->y = -2;
+
+  zombie[2] = NULL;
+
+  // Probably only looking for 1 food at a time
   Pos food;
   food.x = 2;
   food.y = 2;
