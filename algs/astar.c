@@ -23,6 +23,12 @@ int main()
 	return 0;
 }
 
+// Return whether the spot is open
+// Assume given coordinate is legal
+int open(int G[MAX][MAX], x, y) {
+  return G[x][y] < 2;
+}
+
 // Return the manhattan distance of the points
 // x, y: target x, y
 // nx, ny: source x, y
@@ -34,9 +40,26 @@ int manhattanDist (int x, int y, int nx, int ny) {
 // G: item matrix
 // n, m: dimension of G
 // nx, ny: coordinate of the given node
-void successor(int G[MAX][MAX], int n, int m, int nx, int ny)
+// suc: output parameter for the successor
+void successor(int G[MAX][MAX], int n, int m, int nx, int ny, int* suc)
 {
   // Go through the 4 possible options
+  int[] datax = new int[] {-1, 0, 0, 1};
+  int[] datay = new int[] {0, -1, 1, 0};
+
+  for (int i = 0; i < 4; i++) {
+    int x = nx + datax[i];
+    int y = ny + datay[i];
+    if (x < 0 || x >= n) {
+      continue;
+    }
+    if (y < 0 || y >= m) {
+      continue;
+    }
+    if (open(G, x, y)) {
+      
+    }
+  }
 }
 
 // Return the result of how to reach the target
