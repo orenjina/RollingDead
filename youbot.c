@@ -104,7 +104,7 @@ void stop()
 #define FOCAL_LENGTH (120) // camera focal length
 #define MAX_OBJS (25) // max # of detected objects in FOV
 
-int cameras[3] = {4, 9, 10};
+int cameras[3] = {4, 8, 9};
 
 /* TYPEDEFS */
 enum types {blu_zombie, aqu_zombie, gre_zombie, pur_zombie,
@@ -128,17 +128,16 @@ typedef struct vector {
 
 typedef struct position {
 	int type;
-  int x;
-  int y;
+  float x;
+  float y;
 } Pos, *Posi;
 
 typedef struct robot_position {
-  int x;
-  int y;
+  float x;
+  float y;
   // int angle;
 } RobotPos;
 
-// more structs //
 typedef struct rgbColor {
   float r;
   float g;
@@ -242,16 +241,35 @@ float estimateVerticalDistance(Obsv * obj)
 }
 
 /* updates Position with info on object position */
-void calculateXYpos(Obsv * obj, Pos * pos, float z)
+void calculateXYpos(Obsv * obj, Pos * pos, float z, int cam_id)
 {
   int x_avg = (obj->xmax + obj->xmin) / 2 - 64;
   // cam origin = (x=64, y=32)
 
   float theta = atan((float) x_avg / FOCAL_LENGTH);
 
-  pos->x = z * sin(theta);
-  pos->y = z * cos(theta);
+  // pos->x = z * sin(theta);
+  // pos->y = z * cos(theta);
 	pos->type = obj->type;
+
+	switch (cam_id) {
+		case 4: // front cam
+			pos->x = z * sin(theta);
+			pos->y = z * cos(theta);
+			break;
+		case 8: // back cam
+			pos->x = -1 * z * sin(theta);
+			pos->y = -1 * z * cos(theta);
+			break;
+		case 9: // right cam
+			pos->x = z * cos(theta);
+			pos->y = -1 * z * sin(theta);
+			break;
+		case 10: // left cam
+			pos->x = -1 * z * cos(theta);
+			pos->y = z * sin(theta);
+			break;
+	}
 }
 
 void obsvUpdate(Obsv * obs, int type, int x, int y)
@@ -338,7 +356,7 @@ Pos * imageProcess()
 			if(observations[i].type != -1) {
 
 				d = estimateVerticalDistance(&(observations[i]));
-				calculateXYpos(&(observations[i]), &(results[len++]), d);
+				calculateXYpos(&(observations[i]), &(results[len++]), d, cameras[j]);
 			}
 		}
 	}
@@ -465,7 +483,7 @@ void robot_control()
 	Pos * detected = imageProcess();
 	Pos * orig = detected;
 	while((*detected).type != -1) {
-		printf("Detected: type %d, position (%d, %d)\n",
+		printf("Detected: type %d, position (%f, %f)\n",
 						(*detected).type, (*detected).x, (*detected).y);
 
 		detected++;
