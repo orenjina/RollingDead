@@ -94,7 +94,7 @@ void turn_right()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////// CHANGE CODE BELOW HERE ONLY ////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
-#define FOCAL_LENGTH (248)
+#define FOCAL_LENGTH (120)
 
 enum types {blu_zombie, aqu_zombie, gre_zombie, pur_zombie,
           red_berry, yel_berry, ora_berry, pin_berry,
@@ -172,9 +172,9 @@ rgbToHsv( RgbColor  * rgb, HsvColor * hsv)
   if (rgb->r == max)
     hsv->h = (rgb->g - rgb->b) / delta;
   else if (rgb->g == max)
-    hsv->h = 2 + (rgb->b - rgb->r) / delta;
+    hsv->h = 2.0 + (rgb->b - rgb->r) / delta;
   else
-    hsv->h = 4 + (rgb->r - rgb->g) / delta;
+    hsv->h = 4.0 + (rgb->r - rgb->g) / delta;
   hsv->h *= 60;
 
   if (hsv->h < 0)
@@ -189,7 +189,8 @@ inHueRange(HsvColor * hsv, int hue1, int hue2)
 }
 
 void
-obsvUpdate(Obsv * obs, int type, int x, int y) {
+obsvUpdate(Obsv * obs, int type, int x, int y)
+{
   if(obs->type == -1) {
     obs->type = type;
     obs->xmax = x;
@@ -211,9 +212,8 @@ estimateVerticalDistance(Obsv * obj)
 {
   float y_true = 1.77;
   int y_px = obj->ymax - obj->ymin;
-  int focal_len = 248;
 
-  return((float) y_true * focal_len / y_px);
+  return((float) y_true * FOCAL_LENGTH / y_px);
 }
 
 Pos
@@ -221,11 +221,10 @@ calculateXYpos(Obsv * obj, float z)
 {
   Pos res;
 
-  int x_avg = (obj->xmax + obj->xmin) / 2;
-  int focal_len = 248;
+  int x_avg = (obj->xmax + obj->xmin) / 2 - 64;
   // cam origin = (x=64, y=32)
 
-  float theta = atan((float) x_avg / focal_len);
+  float theta = atan((float) x_avg / FOCAL_LENGTH);
 
   res.x = z * sin(theta);
   res.y = z * cos(theta);
@@ -238,11 +237,14 @@ publishObservations(Obsv * objs)
 {
   float d;
   Pos est;
+	Obsv * obj;
   // objs is a 12-item array
   for(int i = 0; i < 12; i++) {
     if(objs[i].type != -1) {
+			obj = &objs[i];
       d = estimateVerticalDistance(&(objs[i]));
       est = calculateXYpos(&(objs[i]), d);
+			// printf("y_min %d, y_max %d\n", obj->ymin, obj->ymax);
       printf("Zombie detected: distance %f, est position (%f, %f)\n", d, est.x, est.y);
     }
   }
@@ -254,18 +256,23 @@ void robot_control()
   Obsv objs[12];
   int type_id;
 
-  for(int i =0; i < 12; i++)
-    objs[i].type = -1;
+	RgbColor rgb;
+	HsvColor hsv;
 
-	const unsigned char *image = wb_camera_get_image(4);
+	for (int i = 0; i < 12; i++) {
+		objs[i].type = -1;
+	}
+
+	const unsigned char * image = wb_camera_get_image(4);
+
 	for (int x = 0; x < 128; x++) {
 
 		for (int y = 0; y < 64; y++) {
       type_id = -1;
 
-			int r = wb_camera_image_get_red(image, 64, x, y);
-			int g = wb_camera_image_get_green(image, 64, x, y);
-			int b = wb_camera_image_get_blue(image, 64, x, y);
+			int r = wb_camera_image_get_red(image, 128, x, y);
+			int g = wb_camera_image_get_green(image, 128, x, y);
+			int b = wb_camera_image_get_blue(image, 128, x, y);
 			// printf("red=%d, green=%d, blue=%d \n", r, g, b);
 
       RgbColor rgb;
@@ -284,9 +291,12 @@ void robot_control()
       else if (inHueRange(&hsv, 200, 225))  type_id = blu_zombie;
 
       if(type_id != -1)
+				printf("color: %d,\n hue, sat (%f, %f)\n xy %d, %d\n",
+								type_id, hsv.h, hsv.s, x, y);
         obsvUpdate(&(objs[type_id]), type_id, x, y);
 
       // do something with the observations
+
       publishObservations(objs);
 		}
 	}
@@ -329,7 +339,7 @@ int main(int argc, char **argv)
   //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // wb_accelerometer_enable(1,1);
-  // wb_gps_enable(2,TIME_STEP);
+  wb_gps_enable(2,TIME_STEP);
   // wb_compass_enable(3,TIME_STEP);
   wb_camera_enable(4,TIME_STEP); // front
   // wb_camera_enable(5,TIME_STEP);
