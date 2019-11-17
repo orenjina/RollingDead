@@ -209,8 +209,7 @@ void rgbToHsv( RgbColor  * rgb, HsvColor * hsv)
 /* returns true if hsv color is in hue range with sat >= sat_min */
 int inHueRange(HsvColor * hsv, int hue1, int hue2)
 {
-  float sat_min = 0.7;
-  return(hsv->h >= hue1 && hsv->h <= hue2 && hsv->s >= sat_min);
+  return(hsv->h >= hue1 && hsv->h <= hue2);
 }
 
 /* Adds the given array of vectors. */
@@ -236,6 +235,15 @@ float estimateVerticalDistance(Obsv * obj)
 {
   float y_true = 1.77;
   int y_px = obj->ymax - obj->ymin;
+
+  if(obj->type == gre_zombie || obj->type == blu_zombie ||
+        obj->type == pur_zombie || obj->type == aqu_zombie) {
+      y_true = 1.77;
+
+  } else if (obj->type == red_berry || obj->type == pin_berry ||
+          obj->type == ora_berry || obj->type == yel_berry) {
+      y_true = 0.1;
+  } // TODO add ref heights for obstacles
 
   return((float) y_true * FOCAL_LENGTH / y_px);
 }
@@ -318,10 +326,14 @@ void processSingleImage(int cam_id, Obsv * objs)
       rgbToHsv(&rgb, &hsv);
 
       // TODO: implement telling the difference between two same-color objects
-      if(inHueRange(&hsv, 120, 132))        type = gre_zombie;
-      else if (inHueRange(&hsv, 250, 280))  type = pur_zombie;
-      else if (inHueRange(&hsv, 165, 185))  type = aqu_zombie;
-      else if (inHueRange(&hsv, 200, 225))  type = blu_zombie;
+      if      (inHueRange(&hsv, 120, 132) && hsv.s >= 0.7)  type = gre_zombie;
+      else if (inHueRange(&hsv, 250, 280) && hsv.s >= 0.7)  type = pur_zombie;
+      else if (inHueRange(&hsv, 165, 185) && hsv.s >= 0.7)  type = aqu_zombie;
+      else if (inHueRange(&hsv, 200, 225) && hsv.s >= 0.7)  type = blu_zombie;
+      else if (inHueRange(&hsv, 315, 340) && hsv.s <= 0.45) type = pin_berry;
+      else if (inHueRange(&hsv, 40, 60  ) && hsv.s >= 0.7)  type = yel_berry;
+      else if (inHueRange(&hsv, 15, 35  )) type = ora_berry;
+      else if (inHueRange(&hsv, 0, 10   ) && hsv.s >= 0.7) type = red_berry;
 
       if(type != -1)
 				// printf("color: %d,\n hue, sat (%f, %f)\n xy %d, %d\n",
