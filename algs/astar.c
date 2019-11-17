@@ -2,8 +2,16 @@
 #include<stdlib.h>
 #define INFINITY 9999
 #define MAX 10
+#define TURN 1
 
 void astar(int G[MAX][MAX],int n,int startnode);
+
+typedef struct LinkedList {
+	int key;
+	double t;
+	double h;
+	struct LinkedList* next;
+} *node;
 
 int main()
 {
@@ -32,16 +40,27 @@ int open(int G[MAX][MAX], x, y) {
 // Return the manhattan distance of the points
 // x, y: target x, y
 // nx, ny: source x, y
-int manhattanDist (int x, int y, int nx, int ny) {
+int manhattanDist (double x, double y, double nx, double ny) {
   return abs(nx - x) + abs(ny - y);
 }
 
+// Return the angle from one position to another
+int angle (double x1, double y1, double x2, double y2) {
+	return atan((y1 - y2) / (x1 - x2));
+}
+
+// Compute the heuristics of the source and target
+int heuristic (double x1, double y1, double x2, double y2) {
+	return manhattanDist(x1, y1, x2, y2) + TURN * abs(angle(x1, y2, x2, y2));
+}
+
 // Given item matrix, find the adjacent nodes of the given node
+// Return the number of successors returned
 // G: item matrix
 // n, m: dimension of G
 // nx, ny: coordinate of the given node
 // suc: output parameter for the successor
-void successor(int G[MAX][MAX], int n, int m, int nx, int ny, int* suc)
+int successor(int G[MAX][MAX], int n, int m, int nx, int ny, int* suc)
 {
   // Go through the 4 possible options
   int[] datax = new int[] {-1, 0, 0, 1};
@@ -57,79 +76,63 @@ void successor(int G[MAX][MAX], int n, int m, int nx, int ny, int* suc)
       continue;
     }
     if (open(G, x, y)) {
-      
+
     }
   }
+}
+
+// Insert an element into the linkedlist priority queue
+// Assume add prepared so that next is null, and nothing
+// is next to it
+void insert(node* head, node add) {
+	node cur = *head;
+	if (cur->t + cur->h >= add->t + add->h) {
+		add->next = cur;
+		*head = add;
+		return;
+	}
+	while (cur->next != NULL) {
+		next = cur->next;
+		if ((next->t + next->h) >= (t + h)) {
+			add->next = next;
+			cur->next = add;
+			return;
+		}
+		cur = next;
+	}
+	cur->next = add;
 }
 
 // Return the result of how to reach the target
 // G: item matrix
 // n, m: dimension
-// start: the coordinate of the starting node
+// source: the coordinate of the starting node
 // target: the coordinate of the desired fruit
-void astar(int G[MAX][MAX],int n,int startnode)
-{
-	int cost[MAX][MAX],distance[MAX],pred[MAX];
-	int visited[MAX],count,mindistance,nextnode,i,j;
+void astar(int G[MAX][MAX], int n, int m, int s, int t) {
+	node head;
+	head->next = NULL;
+	head->key = s;
+	head->t = 0;
+	head->h = heuristic(s, t);
 
-	//pred[] stores the predecessor of each node
-	//count gives the number of nodes seen so far
-	//create the cost matrix
-	for (i = 0;i < n; i++)
-		for (j = 0; j < n; j++)
-			if (G[i][j] == 0)
-				cost[i][j] = INFINITY;
-			else
-				cost[i][j] = G[i][j];
+	// memory for neighbor listings
+	int list[] = (int*) malloc(6 * sizeof(int));
 
-	//initialize pred[],distance[] and visited[]
-	for(i=0;i<n;i++)
-	{
-		distance[i] = cost[startnode][i];
-		pred[i] = startnode;
-		visited[i] = 0;
+	while (head != NULL) {
+		cur = head;
+		int res;
+		res = successor(G, n, m, cur, list)
+		// Keep removing until we find the target
+		// Order maintained by the linked list insert
+
+		for (int i = 0; i < res; i++) {
+			// If it is the target, we can stop
+			// Otherwise add it to the linked list
+		}
+
+		// Move the head along, and free the memory before
+		// if necessary
 	}
 
-	distance[startnode]=0;
-	visited[startnode]=1;
-	count=1;
-
-	while(count<n-1)
-	{
-		mindistance=INFINITY;
-
-		//nextnode gives the node at minimum distance
-		for(i=0;i<n;i++)
-			if(distance[i]<mindistance&&!visited[i])
-			{
-				mindistance=distance[i];
-				nextnode=i;
-			}
-
-			//check if a better path exists through nextnode
-			visited[nextnode]=1;
-			for(i=0;i<n;i++)
-				if(!visited[i])
-					if(mindistance+cost[nextnode][i]<distance[i])
-					{
-						distance[i]=mindistance+cost[nextnode][i];
-						pred[i]=nextnode;
-					}
-		count++;
-	}
-
-	//print the path and distance of each node
-	for(i=0;i<n;i++)
-		if(i!=startnode)
-		{
-			printf("\nDistance of node%d=%d",i,distance[i]);
-			printf("\nPath=%d",i);
-
-			j=i;
-			do
-			{
-				j=pred[j];
-				printf("<-%d",j);
-			}while(j!=startnode);
-	}
+	free(list);
 }
