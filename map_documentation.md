@@ -10,6 +10,8 @@ expand(amount, direction): When the robot gets close to the edge of the map, it 
 
 addToMap(object, x, y):  Adds the object to coordinate x, y. For now it will erase the old one.
 
+clearSector(direction): Clears objects from field of view of camera in direction specified.
+
 Testing:  I scrape the command line arguments and convert them into objects on the map: ./map [object x y]* Here x and y are the coordinates for the object. The object is either “b” for berry, or “z” for zombie.
 
 To do: What to do if try and add object but something already there?  Could have array of objects in every grid space, with order determining which on in front. (This problem would be a result of having imperfect location data of objects)
