@@ -1,16 +1,17 @@
 #include<stdio.h>
 #include<stdlib.h>
-#define INFINITY 9999
-#define MAX 10
-#define TURN 1
+// Estimated ratio of turn time versus grid travel time
+#define TURN 10
 
-void astar(int G[MAX][MAX],int n,int startnode);
+void astar(mapNode*** G,int n, int m, int x1, int y1, int dir, int x2, int y2);
 
 typedef struct LinkedList {
-	int key;
-	double t;
-	double h;
-	struct LinkedList* next;
+	int x;
+	int y;
+	int dir; // 0 north 1 east 2 south 3 west
+	double t; // time elapsed
+	double h; // heuristic function value
+	struct LinkedList* next; // next node
 } *node;
 
 int main()
@@ -33,8 +34,8 @@ int main()
 
 // Return whether the spot is open
 // Assume given coordinate is legal
-int open(int G[MAX][MAX], x, y) {
-  return G[x][y] < 2;
+int open(mapNode*** G, int x, int y) {
+  return G[x][y]->empty;
 }
 
 // Return the manhattan distance of the points
@@ -60,7 +61,7 @@ int heuristic (double x1, double y1, double x2, double y2) {
 // n, m: dimension of G
 // nx, ny: coordinate of the given node
 // suc: output parameter for the successor
-int successor(int G[MAX][MAX], int n, int m, int nx, int ny, int* suc)
+int successor(mapNode*** G, int n, int m, int nx, int ny, int* suc)
 {
   // Go through the 4 possible options
   int[] datax = new int[] {-1, 0, 0, 1};
@@ -107,11 +108,15 @@ void insert(node* head, node add) {
 // G: item matrix
 // n, m: dimension
 // source: the coordinate of the starting node
+// 	 consists of x1, y1, dir
 // target: the coordinate of the desired fruit
-void astar(int G[MAX][MAX], int n, int m, int s, int t) {
+//   consists of x2, y2
+void astar(mapNode*** G, int n, int m, int x1, int y1, int dir, int x2, int y2) {
 	node head;
 	head->next = NULL;
-	head->key = s;
+	head->x = x1;
+	head->y = y1;
+	head->dir = dir;
 	head->t = 0;
 	head->h = heuristic(s, t);
 
