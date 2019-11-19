@@ -8,9 +8,10 @@ void astar(mapNode*** G,int n, int m, int x1, int y1, int dir, int x2, int y2);
 typedef struct LinkedList {
 	int x;
 	int y;
-	int dir; // 0 north 1 east 2 south 3 west
+	int dir; // 0 verticle, 1 horizontal
 	double t; // time elapsed
 	double h; // heuristic function value
+	int ini; // initial action, left, right, or turn
 	struct LinkedList* next; // next node
 } *node;
 
@@ -59,27 +60,55 @@ int heuristic (double x1, double y1, double x2, double y2) {
 // Return the number of successors returned
 // G: item matrix
 // n, m: dimension of G
-// nx, ny: coordinate of the given node
+// source: the given node
+// target: the targetted node
 // suc: output parameter for the successor
-int successor(mapNode*** G, int n, int m, int nx, int ny, int* suc)
+int successor(mapNode*** G, int n, int m, node source, node target, node* suc, int ini)
 {
-  // Go through the 4 possible options
-  int[] datax = new int[] {-1, 0, 0, 1};
-  int[] datay = new int[] {0, -1, 1, 0};
+  // Go through the possible options
+	ret = 0;
+  int[] data = new int[] {-1, 1};
 
-  for (int i = 0; i < 4; i++) {
-    int x = nx + datax[i];
-    int y = ny + datay[i];
-    if (x < 0 || x >= n) {
-      continue;
-    }
-    if (y < 0 || y >= m) {
-      continue;
-    }
+  for (int i = 0; i < 2; i++) {
+		int x = source->x;
+		int y = source->y;
+		if (source->dir) {
+	    y = ny + data[i];
+	    if (y < 0 || y >= m) {
+	      continue;
+	    }
+		} else {
+    	x = nx + data[i];
+	    if (x < 0 || x >= n) {
+	      continue;
+	    }
+		}
     if (open(G, x, y)) {
-
+			node newNode = malloc(sizeof(LinkedList));
+			// initialize initial action
+			newNode->x = x;
+			newNode->y = y;
+			newNode->dir = source->dir;
+			newNode->t = source->t + 1;
+			newNode->h = heuristic(x, y, target->x, target->y);
+			newNode->ini = source->ini;
+			*suc = newNode;
+			suc++;
+			ret++;
     }
   }
+	// Turn
+	node newNode = malloc(sizeof(LinkedList));
+	// initialize initial action
+	newNode->x = x;
+	newNode->y = y;
+	newNode->dir = (1 - source->dir);
+	newNode->t = source->t + TURN;
+	newNode->h = heuristic(source->x, source->y, target->x, target->y);
+	newNode->ini = source->ini;
+	*suc = newNode;
+	ret++;
+	return ret;
 }
 
 // Insert an element into the linkedlist priority queue
@@ -104,7 +133,16 @@ void insert(node* head, node add) {
 	cur->next = add;
 }
 
+// add num nodes at add
+void insertAll(node* head, node* add, int num) {
+	for (int i = 0; i < num; i++) {
+		insert(head, *(add + i));
+	}
+}
+
 // Return the result of how to reach the target
+// Return null if we are already there
+// Return 1 if going forwards, 2 if going backwards, 3 if turn
 // G: item matrix
 // n, m: dimension
 // source: the coordinate of the starting node
@@ -117,26 +155,34 @@ void astar(mapNode*** G, int n, int m, int x1, int y1, int dir, int x2, int y2) 
 	head->x = x1;
 	head->y = y1;
 	head->dir = dir;
+	head->ini = NULL;
 	head->t = 0;
 	head->h = heuristic(s, t);
 
 	// memory for neighbor listings
-	int list[] = (int*) malloc(6 * sizeof(int));
+	// maximum 3 options, forward, back, turn
+	node list[] = (node) malloc(3 * sizeof(LinkedList));
 
-	while (head != NULL) {
-		cur = head;
-		int res;
-		res = successor(G, n, m, cur, list)
+	// fencepost so that we record the initial action correctly
+	node cur = head;
+	int res;
+	res = successor(G, n, m, cur->x, cur->y, cur->dir, list);
+	insertAll(&cur, &list, res);
+
+	while (cur != NULL) {
 		// Keep removing until we find the target
-		// Order maintained by the linked list insert
-
-		for (int i = 0; i < res; i++) {
-			// If it is the target, we can stop
-			// Otherwise add it to the linked list
+		if ((cur->x == x2) && (cur->y == y_2)) {
+			// Found the target
+			return cur->ini;
 		}
 
+		cur = head;
+		res = successor(G, n, m, cur->x, cur->y, cur->dir, list);
+		insertAll(&cur, &list, res);
 		// Move the head along, and free the memory before
-		// if necessary
+		cur = cur->next;
+		free(head);
+		head = cur;
 	}
 
 	free(list);
