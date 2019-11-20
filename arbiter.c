@@ -80,16 +80,41 @@ double proj (Vector v, int angle) {
 // 	return ret;
 // }
 
-int* findFood(void)
-{
-	int* food = malloc(sizeof(int)*5);
-	food[0] = 0;
-	food[1] = 0;
-	food[2] = 0;
-	food[3] = 0;
-	food[4] = 0;
 
-	return food;
+// Do similar things as zombies but for food
+// So same structure but different parameters
+int* findFood(RobotPos robot, Posi food, int len)
+{
+	printf("finding berries\n");
+  Vector v;
+  v = malloc(sizeof(struct vector)); // must be freed
+
+  v->x = 0;
+  v->y = 0;
+
+  for (int i = 0; i < len; i++) {
+		// Temporary function on the amount of influence berries have
+		// given the distance
+    v->x += (-2.0 / sqrt(robot.x - (food)->x + 1));
+    v->y += (-2.0 / sqrt(robot.y - (food)->y + 1));
+    food++;
+	}
+
+	// printf("v->x: %f\n", v->x);
+	// printf("v->y: %f\n", v->y);
+
+	int* avoid = malloc(sizeof(int)*5);
+
+
+	// formulas subjected to tweaking
+	avoid[0] = proj(v, robot.angle);
+	avoid[1] = proj(v, reverse(robot.angle));
+	// convenient calculation for the sides
+	avoid[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
+	avoid[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
+	avoid[4] = 0;
+
+	return avoid;
 }
 
 // Compute vector of the given zombies,
@@ -172,9 +197,9 @@ int* avoidObstacles(void)
 //
 // Gets all arguments from sensors and internal map
 // Parameter can be further explained here
-void arbiter(RobotPos robot, Posi zombie, int zombie_len)
+void arbiter(RobotPos robot, Posi zombie, int zombie_len, Posi food, int food_len)
 {
-	int* foodVote = findFood();
+	int* foodVote = findFood(robot, food, food_len);
 	int* avoidObstaclesVote = avoidObstacles();
 	int* exploreVote = explore();
 	int* knockBerryVote = knockBerryDown();
@@ -229,12 +254,13 @@ void arbiter(RobotPos robot, Posi zombie, int zombie_len)
 
 int main()
 {
-
+	// Robot current position. Center and facing front
   RobotPos current_pos;
   current_pos.x = 0;
   current_pos.y = 0;
 	current_pos.angle = 0;
 
+	// Zombie testing parameters
 	Posi zombie = (Posi) malloc(2 * sizeof(struct position));
   zombie[0].x = -2;
   zombie[0].y = -3;
@@ -246,7 +272,15 @@ int main()
 
 	// printf("sup, world\n");
 
-	arbiter(current_pos, zombie, 2);
-	printf("Hello, World!\n");
+	// Food testing parameters
+	Posi food = (Posi) malloc(2 * sizeof(struct position));
+  food[0].x = 2;
+  food[0].y = 1;
+
+  food[1].x = -1;
+  food[1].y = 4;
+
+	arbiter(current_pos, zombie, 2, food, 2);
+	// printf("Hello, World!\n");
 	return 0;
 }
