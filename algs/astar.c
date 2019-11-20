@@ -47,8 +47,8 @@ int manhattanDist (double x, double y, double nx, double ny) {
 }
 
 // Return the angle from one position to another
-int angle (double x1, double y1, double x2, double y2) {
-	return atan((y1 - y2) / (x1 - x2));
+double angle (double x1, double y1, double x2, double y2) {
+	return atan((y2 - y1) / (x2 - x1));
 }
 
 // Compute the heuristics of the source and target
