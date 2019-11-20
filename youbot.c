@@ -20,6 +20,8 @@
  *                robot
  */
 
+
+
 #include <webots/keyboard.h>
 #include <webots/robot.h>
 #include <webots/supervisor.h>
@@ -32,79 +34,72 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <webots/camera.h>
-// #include <webots/accelerometer.h>
-// #include <webots/lidar.h>
-// #include <webots/compass.h>
+#include <webots/accelerometer.h>
+#include <webots/lidar.h>
+#include <webots/compass.h>
 #include <webots/gps.h>
-// #include <webots/range_finder.h>
-// #include <webots/gyro.h>
-// #include <webots/light_sensor.h>
-// #include <webots/receiver.h>
-// #include <webots/distance_sensor.h>
+#include <webots/range_finder.h>
+#include <webots/gyro.h>
+#include <webots/light_sensor.h>
+#include <webots/receiver.h>
+#include <webots/distance_sensor.h>
 
 #include <youbot_zombie_1.h>
 
-//void wb_camera_enable(WbDeviceTag tag, int sampling_period);
-//void wb_camera_disable(WbDeviceTag tag);
-//int wb_camera_get_sampling_period(WbDeviceTag tag);
 
 int robot_angle = 0;
 #define TIME_STEP 32
 
-void rotate_robot(int angle)
-{
-    WbNodeRef robot_node = wb_supervisor_node_get_from_def("Youbot");
-    WbFieldRef rot_field = wb_supervisor_node_get_field(robot_node, "rotation");
-    double rotation[4];
-    if (angle == 0) { rotation[0] = 1; rotation[1] = 0; rotation[2] = 0; rotation[3] = -1.57; }
-    if (angle == 15) { rotation[0] = -0.985; rotation[1] = 0.126; rotation[2] = 0.122; rotation[3] = 1.59; }
-    if (angle == 30) { rotation[0] = -0.938; rotation[1] = 0.247; rotation[2] = 0.244; rotation[3] = 1.63; }
-    if (angle == 45) { rotation[0] = -0.866; rotation[1] = 0.355; rotation[2] = 0.352; rotation[3] = 1.71; }
-    if (angle == 60) { rotation[0] = -0.778; rotation[1] = 0.445; rotation[2] = 0.443; rotation[3] = 1.82; }
-    if (angle == 75) { rotation[0] = -0.681; rotation[1] = 0.519; rotation[2] = 0.516; rotation[3] = 1.94; }
-    if (angle == 90) { rotation[0] = -0.581; rotation[1] = 0.577; rotation[2] = 0.572; rotation[3] = 2.09; }
-    if (angle == 105) { rotation[0] = -0.48; rotation[1] = 0.621; rotation[2] = 0.619; rotation[3] = 2.24; }
-    if (angle == 120) { rotation[0] = -0.381; rotation[1] = 0.654; rotation[2] = 0.653; rotation[3] = 2.41; }
-    if (angle == 135) { rotation[0] = -0.284; rotation[1] = 0.679; rotation[2] = 0.677; rotation[3] = 2.58; }
-    if (angle == 150) { rotation[0] = -0.189; rotation[1] = 0.695; rotation[2] = 0.694; rotation[3] = 2.76; }
-    if (angle == 165) { rotation[0] = -0.095; rotation[1] = 0.704; rotation[2] = 0.704; rotation[3] = 2.95; }
-    if (angle == 180) { rotation[0] = -0.00268959; rotation[1] = 0.707126; rotation[2] = 0.707083; rotation[3] = 3.13102; }
-    if (angle == 195) { rotation[0] = 0.090; rotation[1] = 0.704; rotation[2] = 0.704; rotation[3] = -2.97; }
-    if (angle == 210) { rotation[0] = 0.183; rotation[1] = 0.695; rotation[2] = 0.695; rotation[3] = -2.78; }
-    if (angle == 225) { rotation[0] = 0.278; rotation[1] = 0.679; rotation[2] = 0.680; rotation[3] = -2.6; }
-    if (angle == 240) { rotation[0] = 0.375; rotation[1] = 0.655; rotation[2] = 0.656; rotation[3] = -2.43; }
-    if (angle == 255) { rotation[0] = 0.473; rotation[1] = 0.622; rotation[2] = 0.624; rotation[3] = -2.26; }
-    if (angle == 270) { rotation[0] = 0.574; rotation[1] = 0.578; rotation[2] = 0.580; rotation[3] = -2.10; }
-    if (angle == 285) { rotation[0] = 0.674; rotation[1] = 0.521; rotation[2] = 0.524; rotation[3] = -1.96; }
-    if (angle == 300) { rotation[0] = 0.771; rotation[1] = 0.449; rotation[2] = 0.452; rotation[3] = -1.83; }
-    if (angle == 315) { rotation[0] = 0.860; rotation[1] = 0.360; rotation[2] = 0.363; rotation[3] = -1.72; }
-    if (angle == 330) { rotation[0] = 0.933; rotation[1] = 0.254; rotation[2] = 0.257; rotation[3] = -1.64; }
-    if (angle == 345) { rotation[0] = 0.982; rotation[1] = 0.133; rotation[2] = 0.137; rotation[3] = -1.59; }
-    wb_supervisor_field_set_sf_rotation(rot_field,rotation);
-    robot_angle = angle;
-}
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////// ONLY USE THE FOLLOWING FUNCTIONS TO MOVE THE ROBOT /////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void go_forward()
-{
-	base_forwards();
-}
 
 void stop()
 {
 	base_reset();
 }
 
+void go_forward()
+{
+	base_forwards();
+}
+
+void go_backward()
+{
+	base_backwards();
+}
+
+void turn_left()
+{
+	base_turn_left();
+	robot_angle = robot_angle + 90;
+	if (robot_angle == 360)
+		robot_angle = 0;
+
+}
+
+void turn_right()
+{
+	base_turn_right();
+	robot_angle = robot_angle - 90;
+	if (robot_angle == -90)
+		robot_angle = 270;
+}
+
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////// CHANGE CODE BELOW HERE ONLY ////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define ANGLE_UNIT (45) // what angle we should round to for turning commands
 #define FOCAL_LENGTH (120) // camera focal length
-#define MAX_OBJS (25) // max # of detected objects in FOV
+#define MAX_OBJS (25) // max # of detected objects in total FOV
 
-int cameras[3] = {4, 8, 9};
+int cameras[3] = {4, 8, 9}; // cam ids of the cameras we're using
 
 /* TYPEDEFS */
 enum types {blu_zombie, aqu_zombie, gre_zombie, pur_zombie,
@@ -112,31 +107,19 @@ enum types {blu_zombie, aqu_zombie, gre_zombie, pur_zombie,
           stump, tree, wall, edge};
 
 typedef struct img_observation {
-  int type;  // typecode
-  int cam;   // cam id
-  // bounding box info
-  int ymin;
-  int ymax;
-  int xmin;
-  int xmax;
-} Obsv;
+  int type; // object type
+  int cam; // camera id
+  int x[2]; // bounding box
+  int y[2];
+} BoundingBox;
 
-typedef struct vector {
+typedef struct obj_position {
+  int type;
   float x;
   float y;
-} * Vector;
-
-typedef struct position {
-	int type;
-  float x;
-  float y;
-} Pos, *Posi;
-
-typedef struct robot_position {
-  float x;
-  float y;
-  // int angle;
-} RobotPos;
+  float xrange[2];
+  float yrange[2];
+} Obj;
 
 typedef struct rgbColor {
   float r;
@@ -149,7 +132,11 @@ typedef struct hsvcolor {
   float s;
   float v;
 } HsvColor;
-/////
+
+typedef struct vector {
+  float x;
+  float y;
+} * Vector;
 
 /* UTILITY FUNCTIONS */
 /* 3-input max and min functions (useful for perception math) */
@@ -173,8 +160,29 @@ int round_to_angle_setting(int angle)
   return (angle + ANGLE_UNIT - remainder);
 }
 
+/* Adds the given array of vectors. */
+Vector vector_sum(Vector * vectors)
+/* must be null-terminated. also frees the input vectors along the way */
+{
+  Vector sum = malloc(sizeof(struct vector));
+  sum->x = 0;
+  sum->y = 0;
+
+  while (*vectors != NULL) {
+    sum->x += (*vectors)->x;
+    sum->y += (*vectors)->y;
+    free(*vectors);
+    vectors++;
+  }
+  return sum;
+}
+
+////////////////
+
+/* IMAGE PROCESSING FUNCTIONS */
+
 /* converts rgb color codes to hsv */
-void rgbToHsv( RgbColor  * rgb, HsvColor * hsv)
+void rgb_to_hsv( RgbColor  * rgb, HsvColor * hsv)
 /* r, g, and b should be in range [0, 1]*/
 {
   // HsvColor hsv;
@@ -206,35 +214,68 @@ void rgbToHsv( RgbColor  * rgb, HsvColor * hsv)
     hsv->h += 360;
 }
 
-/* returns true if hsv color is in hue range with sat >= sat_min */
-int inHueRange(HsvColor * hsv, int hue1, int hue2)
+/* Update hsv with HSV data from pixel (xyz) */
+void get_pixel_data(const unsigned char * image, int x, int y, HsvColor * hsv)
 {
-  return(hsv->h >= hue1 && hsv->h <= hue2);
+  int r = wb_camera_image_get_red(image, 128, x, y);
+  int g = wb_camera_image_get_green(image, 128, x, y);
+  int b = wb_camera_image_get_blue(image, 128, x, y);
+
+  RgbColor rgb;
+
+  rgb.r = (float) r / 255.0;
+  rgb.g = (float) g / 255.0;
+  rgb.b = (float) b / 255.0;
+
+  rgb_to_hsv(&rgb, hsv);
 }
 
-/* Adds the given array of vectors. */
-Vector vector_sum(Vector * vectors)
-/* must be null-terminated. also frees the input vectors along the way */
+/* Return object id that HSV color matches with (or -1 if none) */
+int color_match(HsvColor * hsv)
 {
-  Vector sum = malloc(sizeof(struct vector));
-  sum->x = 0;
-  sum->y = 0;
+  int type = -1;
 
-  while (*vectors != NULL) {
-    sum->x += (*vectors)->x;
-    sum->y += (*vectors)->y;
-    free(*vectors);
-    vectors++;
+  if      (hsv->h >= 120 && hsv->h <= 132 && hsv->s >= 0.7) type = gre_zombie;
+  else if (hsv->h >= 250 && hsv->h <= 280 && hsv->s >= 0.7) type = pur_zombie;
+  else if (hsv->h >= 165 && hsv->h <= 185 && hsv->s >= 0.7) type = aqu_zombie;
+  else if (hsv->h >= 200 && hsv->h <= 225 && hsv->s >= 0.7) type = blu_zombie;
+
+  else if (hsv->h >= 315 && hsv->h <= 340 && hsv->s <= 0.5) type = pin_berry;
+  else if (hsv->h >= 40  && hsv->h <= 60  && hsv->s >= 0.7) type = yel_berry;
+  else if (hsv->h >= 15  && hsv->h <= 35)                   type = ora_berry;
+  else if (hsv->h >= 0   && hsv->h <= 10  && hsv->s >= 0.7) type = red_berry;
+
+  // TODO: add obstacles
+  // obstacles go here
+  // type = stump;
+  // type = tree;
+  // type = wall;
+
+  return type;
+}
+
+/* Update bounding box information */
+void obs_update(BoundingBox * box, int type, int x, int y)
+{
+  if(box->type == -1) {
+    box->type = type;
+    box->x[0] = box->x[1] = x;
+    box->y[0] = box->y[1] = y;
+  } else {
+    // update bounding box info
+    if(x > box->x[1]) box->x[1] = x;
+    else if (x < box->x[0]) box->x[0] = x;
+
+    if(y > box->y[1]) box->y[1] = y;
+    else if (y < box->y[0]) box->y[0] = y;
   }
-  return sum;
 }
-///////
 
-/* INFO PROCESSING FUNCTIONS */
-float estimateVerticalDistance(Obsv * obj)
+/* Calculate position information*/
+float estimate_vertical_distance(BoundingBox * obj)
 {
-  float y_true = 1.77;
-  int y_px = obj->ymax - obj->ymin;
+  float y_true = 0;
+  int y_px = obj->y[1] - obj->y[0];
 
   if(obj->type == gre_zombie || obj->type == blu_zombie ||
         obj->type == pur_zombie || obj->type == aqu_zombie) {
@@ -247,18 +288,13 @@ float estimateVerticalDistance(Obsv * obj)
 
   return((float) y_true * FOCAL_LENGTH / y_px);
 }
-
-/* updates Position with info on object position */
-void calculateXYpos(Obsv * obj, Pos * pos, float z, int cam_id)
+void calculate_XY_pos(BoundingBox * box, Obj * pos, int cam_id)
 {
-  int x_avg = (obj->xmax + obj->xmin) / 2 - 64;
-  // cam origin = (x=64, y=32)
-
+  int x_avg = (box->x[1] - box->x[0]) / 2 - 64;
+  float z = estimate_vertical_distance(box);
   float theta = atan((float) x_avg / FOCAL_LENGTH);
 
-  // pos->x = z * sin(theta);
-  // pos->y = z * cos(theta);
-	pos->type = obj->type;
+  pos->type = box->type;
 
 	switch (cam_id) {
 		case 4: // front cam
@@ -280,220 +316,149 @@ void calculateXYpos(Obsv * obj, Pos * pos, float z, int cam_id)
 	}
 }
 
-void obsvUpdate(Obsv * obs, int type, int x, int y)
+/* Process data from a single camera input */
+void process_single_image(int cam_id, BoundingBox * objs)
 {
-  if(obs->type == -1) {
-    obs->type = type;
-    obs->xmax = x;
-    obs->xmin = x;
-    obs->ymax = y;
-    obs->ymin = y;
+  // int len = 0;
+  int type;
+  const unsigned char * image = wb_camera_get_image(cam_id);
+  HsvColor pxl;
 
-  } else {
-    if(x > obs->xmax) obs->xmax = x;
-    else if (x < obs->xmin) obs->xmin = x;
+	for(int i = 0; i < 12; i++) objs[i].type = -1;
 
-    if(y > obs->ymax) obs->ymax = y;
-    else if (y < obs->ymin) obs->ymin = y;
+  for (int x = 0; x < 128; x++) {
+    for (int y = 0; y < 64; y++) {
+      get_pixel_data(image, x, y, &pxl);
+      type = color_match(&pxl);
+
+      if (type >= 0) {
+        obs_update(&(objs[type]), type, x, y);
+      }
+    }
   }
 }
 
-/* main image processing for single camera */
-void processSingleImage(int cam_id, Obsv * objs)
+/* main image processing for 3 cams */
+Obj * process_input()
 {
-	int type;
-	RgbColor rgb;
-	HsvColor hsv;
+  BoundingBox boxes[12]; // TODO fix
+  Obj * results;
+  results = malloc(MAX_OBJS * sizeof(Obj));
+  int len = 0;
 
-	const unsigned char * image = wb_camera_get_image(cam_id);
+  // each camera
+  for(int j = 0; j < 3; j++) {
 
-	for (int x = 0; x < 128; x++) {
-		for (int y = 0; y < 64; y++) {
-      type = -1;
+    process_single_image(cameras[j], boxes);
 
-			int r = wb_camera_image_get_red(image, 128, x, y);
-			int g = wb_camera_image_get_green(image, 128, x, y);
-			int b = wb_camera_image_get_blue(image, 128, x, y);
-			// printf("red=%d, green=%d, blue=%d \n", r, g, b);
-
-      RgbColor rgb;
-      HsvColor hsv;
-
-      rgb.r = (float) r / 255.0;
-      rgb.g = (float) g / 255.0;
-      rgb.b = (float) b / 255.0;
-
-      rgbToHsv(&rgb, &hsv);
-
-      // TODO: implement telling the difference between two same-color objects
-      if      (inHueRange(&hsv, 120, 132) && hsv.s >= 0.7)  type = gre_zombie;
-      else if (inHueRange(&hsv, 250, 280) && hsv.s >= 0.7)  type = pur_zombie;
-      else if (inHueRange(&hsv, 165, 185) && hsv.s >= 0.7)  type = aqu_zombie;
-      else if (inHueRange(&hsv, 200, 225) && hsv.s >= 0.7)  type = blu_zombie;
-      else if (inHueRange(&hsv, 315, 340) && hsv.s <= 0.45) type = pin_berry;
-      else if (inHueRange(&hsv, 40, 60  ) && hsv.s >= 0.7)  type = yel_berry;
-      else if (inHueRange(&hsv, 15, 35  )) type = ora_berry;
-      else if (inHueRange(&hsv, 0, 10   ) && hsv.s >= 0.7) type = red_berry;
-
-      if(type != -1)
-				// printf("color: %d,\n hue, sat (%f, %f)\n xy %d, %d\n",
-				// 				type, hsv.h, hsv.s, x, y);
-        obsvUpdate(&(objs[type]), type, x, y);
-		}
-	}
+    // process info
+		// TODO: fix bug that's causing crash
+    for(int i = 0; i < 12; i++) { // TODO fix for variable length?
+      if(boxes[i].type != -1) {
+        calculate_XY_pos(&(boxes[i]), &(results[len++]), cameras[j]);
+      }
+    }
+  }
+  results[len].type = -1;
+  return results;
 }
 
-/* main image processing for the 3 main cams */
-Pos * imageProcess()
-/* returns a malloc'd list of positions (terminated by one with type -1) */
-{
-	Obsv observations[12];
-	float d;
-	Pos * results;
+//////////////////////////////////////////
 
-	results = malloc(MAX_OBJS * sizeof(Pos));
-
-	int len = 0;
-
-	// process each camera image
-	for(int j = 0; j < 3; j++) {
-		// reset observation space
-		for(int i=0; i < 12; i++) observations[i].type = -1;
-
-		// get latest info
-		processSingleImage(cameras[j], observations);
-
-		// process info and append to final
-		for(int i=0; i < 12; i++) {
-			if(observations[i].type != -1) {
-
-				d = estimateVerticalDistance(&(observations[i]));
-				calculateXYpos(&(observations[i]), &(results[len++]), d, cameras[j]);
-			}
-		}
-	}
-	results[len].type = -1;
-	return results;
-}
-
-//////
-
-/* BEHAVIOR FUNCTIONS */
+/* BEHAVIOR AND CONTROL FUNCTIONS */
 
 // Return vector computed by robot going directly away from the obstacle
-Vector avoid_single_obstacle(RobotPos robot, Pos obstacle)
-// currently assuming obstacle pos is absolute - could also be relative too
-{
-  Vector v;
-  v = malloc(sizeof(struct vector)); // must be freed
-
-  v->x = robot.x - obstacle.x;
-  v->y = robot.y - obstacle.y;
-
-  return v;
-}
+// Vector avoid_single_obstacle(RobotPos robot, Pos obstacle)
+// // currently assuming obstacle pos is absolute - could also be relative too
+// {
+//   Vector v;
+//   v = malloc(sizeof(struct vector)); // must be freed
+//
+//   v->x = robot.x - obstacle.x;
+//   v->y = robot.y - obstacle.y;
+//
+//   return v;
+// }
 
 // Return vector computed by robot going directly away from the zombie,
 // but a multiplying factor is at work as well.
-Vector avoid_zombie(RobotPos robot, Posi* zombie, int factor)
-{
-  Vector v;
-  v = malloc(sizeof(struct vector)); // must be freed
+// Vector avoid_zombie(RobotPos robot, Posi* zombie, int factor)
+// {
+//   Vector v;
+//   v = malloc(sizeof(struct vector)); // must be freed
+//
+//   v->x = 0;
+//   v->y = 0;
+//
+//   while(*zombie != NULL) {
+//     v->x += (robot.x - (*zombie)->x) * factor;
+//     v->y += (robot.y - (*zombie)->y) * factor;
+//     zombie++;
+//   }
+//   return v;
+// }
+//
+// // TODO: Add a variation with mutliple inputs
+// // Return vector computed by robot going directly to the food
+// Vector looking_for_food(RobotPos robot, Pos food, int factor)
+// {
+//   Vector v;
+//   v = malloc(sizeof(struct vector)); // must be freed
+//
+//   v->x = (robot.x - food.x) * factor;
+//   v->y = (robot.y - food.y) * factor;
+//
+//   return v;
+// }
+//
+// // TODO: update for new spec
+// // Given the parameters, execute commands for the actions
+// void arbiter(RobotPos robot, Pos obstacle, Posi* zombie, Pos food)
+// {
+//   // calculate behavior output vectors here
+//   Vector v_avoid_obstacle = avoid_single_obstacle(robot, obstacle);
+//   // Tweak factor based on health, type of zombie, and proximity
+//   // The tweaking might happen elsewhere
+//   Vector v_avoid_zombie = avoid_zombie(robot, zombie, 2);
+//   // Change factor when low energy, decrease when high energy
+//   Vector v_find_food = looking_for_food(robot, food, -1);
+//
+//   // collect vectors
+//   Vector v_list[4];
+//   v_list[0] = v_avoid_obstacle;
+//   v_list[1] = v_avoid_zombie;
+//   v_list[2] = v_find_food;
+//   v_list[3] = NULL;
+//
+//   // arbitration
+//   Vector v_output = vector_sum(v_list);
+//
+//   // calculate output angle
+//   float angle = acos((v_output->x + v_output->y) / sqrt(v_output->x * v_output->x  + v_output->y * v_output->y));
+//
+//   // convert to degrees
+//   angle = angle / M_PI * 180;
+//
+//   int output_angle = round_to_angle_setting(angle);
+//   if (output_angle == 360)
+//     output_angle = 0;
+//   else if (output_angle < 0)
+//     output_angle += 360;
+//
+//   // printf("%d\n", output_angle);
+//   free(v_output);
+//
+//   // finally, execute command
+//   stop();
+//   rotate_robot(output_angle);
+// }
 
-  v->x = 0;
-  v->y = 0;
 
-  while(*zombie != NULL) {
-    v->x += (robot.x - (*zombie)->x) * factor;
-    v->y += (robot.y - (*zombie)->y) * factor;
-    zombie++;
-  }
-  return v;
-}
-
-// TODO: Add a variation with mutliple inputs
-// Return vector computed by robot going directly to the food
-Vector looking_for_food(RobotPos robot, Pos food, int factor)
-{
-  Vector v;
-  v = malloc(sizeof(struct vector)); // must be freed
-
-  v->x = (robot.x - food.x) * factor;
-  v->y = (robot.y - food.y) * factor;
-
-  return v;
-}
-
-// Given the parameters, execute commands for the actions
-void arbiter(RobotPos robot, Pos obstacle, Posi* zombie, Pos food)
-{
-  // calculate behavior output vectors here
-  Vector v_avoid_obstacle = avoid_single_obstacle(robot, obstacle);
-  // Tweak factor based on health, type of zombie, and proximity
-  // The tweaking might happen elsewhere
-  Vector v_avoid_zombie = avoid_zombie(robot, zombie, 2);
-  // Change factor when low energy, decrease when high energy
-  Vector v_find_food = looking_for_food(robot, food, -1);
-
-  // collect vectors
-  Vector v_list[4];
-  v_list[0] = v_avoid_obstacle;
-  v_list[1] = v_avoid_zombie;
-  v_list[2] = v_find_food;
-  v_list[3] = NULL;
-
-  // arbitration
-  Vector v_output = vector_sum(v_list);
-
-  // calculate output angle
-  float angle = acos((v_output->x + v_output->y) / sqrt(v_output->x * v_output->x  + v_output->y * v_output->y));
-
-  // convert to degrees
-  angle = angle / M_PI * 180;
-
-  int output_angle = round_to_angle_setting(angle);
-  if (output_angle == 360)
-    output_angle = 0;
-  else if (output_angle < 0)
-    output_angle += 360;
-
-  // printf("%d\n", output_angle);
-  free(v_output);
-
-  // finally, execute command
-  stop();
-  rotate_robot(output_angle);
-}
-
-/* MAIN CONTROL */
 void robot_control()
 {
-  // RobotPos current_pos;
-  // current_pos.x = 0;
-  // current_pos.y = 0;
-	//
-  // Pos obs;
-  // obs.x = 0;
-  // obs.y = 1;
-	//
-  // Posi zombie[3];
-  // zombie[0]->x = -2;
-  // zombie[0]->y = -3;
-	//
-  // zombie[1]->x = 0;
-  // zombie[1]->y = -2;
-	//
-  // zombie[2] = NULL;
-	//
-  // // Probably only looking for 1 food at a time
-  // Pos food;
-  // food.x = 2;
-  // food.y = 2;
-	//
-  // arbiter(current_pos, obs, zombie, food);
-
-	Pos * detected = imageProcess();
-	Pos * orig = detected;
+  // TODO
+	Obj * detected = process_input();
+	Obj * orig = detected;
 	while((*detected).type != -1) {
 		printf("Detected: type %d, position (%f, %f)\n",
 						(*detected).type, (*detected).x, (*detected).y);
@@ -502,6 +467,8 @@ void robot_control()
 	}
 	free(orig);
 }
+
+
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -514,16 +481,12 @@ int main(int argc, char **argv)
 
   struct Robot robot_info = {100,100};
   wb_robot_init();
-
-
-
-
   base_init();
   arm_init();
   gripper_init();
   passive_wait(0.1);
 
-  // display_helper_message();
+  //display_helper_message();
 
   int pc = 0;
   wb_keyboard_enable(TIME_STEP);
@@ -562,6 +525,7 @@ int main(int argc, char **argv)
 
   //WbDeviceTag rec = wb_robot_get_device("receiver");
 
+  //int i = 0;
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////
   ///////////////////////// CHANGE CODE ABOVE HERE ONLY ////////////////////////////////////////////////////
@@ -580,14 +544,17 @@ int main(int argc, char **argv)
 		const double *trans = wb_supervisor_field_get_sf_vec3f(trans_field);
 		check_berry_collision(&robot_info, trans[0], trans[2]);
 		check_zombie_collision(&robot_info, trans[0], trans[2]);
+		//printf("%f\n", trans[0]);
 	}
     if (timer == 16)
     {
         update_robot(&robot_info);
         timer = 0;
-
     }
+
     step();
+
+
 
     int c = keyboard(pc);
     pc = c;
@@ -599,9 +566,24 @@ int main(int argc, char **argv)
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // this is called everytime step.
+
+    // if (i < 100)
+    // {
+    // 	base_forwards();
+    // }
+    // if (i == 100)
+    // {
+    // 	base_reset();
+    // 	base_turn_left();
+    // }
+    // if (i == 300)
+    // {
+    // 	i = 0;
+    // }
+    // i++;
+
     robot_control();
-    go_forward();
-    //stop();
+
 
    //  if (wb_receiver_get_queue_length(rec) > 0)
   	// {
@@ -609,6 +591,7 @@ int main(int argc, char **argv)
    //      printf("Communicating: received \"%s\"\n", buffer);
    //  	wb_receiver_next_packet(rec);
    //  }
+
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////// CHANGE CODE ABOVE HERE ONLY ////////////////////////////////////////////////////
