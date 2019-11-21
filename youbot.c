@@ -97,9 +97,10 @@ void turn_right()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define ANGLE_UNIT (45) // what angle we should round to for turning commands
 #define FOCAL_LENGTH (120) // camera focal length
-#define MAX_OBJS (25) // max # of detected objects in total FOV
+#define MAX_OBJS (32) // max # of detected objects in total FOV
 
 int cameras[3] = {4, 8, 9}; // cam ids of the cameras we're using
+// front, back, left
 
 /* TYPEDEFS */
 enum types {blu_zombie, aqu_zombie, gre_zombie, pur_zombie,
@@ -111,14 +112,15 @@ typedef struct img_observation {
   int cam; // camera id
   int x[2]; // bounding box
   int y[2];
+	int y1[2]; // only used for walls
 } BoundingBox;
 
 typedef struct obj_position {
   int type;
   float x;
   float y;
-  float xrange[2];
-  float yrange[2];
+  float x1;
+  float y1;
 } Obj;
 
 typedef struct rgbColor {
@@ -234,22 +236,23 @@ void get_pixel_data(const unsigned char * image, int x, int y, HsvColor * hsv)
 int color_match(HsvColor * hsv)
 {
   int type = -1;
-
-  if      (hsv->h >= 120 && hsv->h <= 132 && hsv->s >= 0.7) type = gre_zombie;
-  else if (hsv->h >= 250 && hsv->h <= 280 && hsv->s >= 0.7) type = pur_zombie;
-  else if (hsv->h >= 165 && hsv->h <= 185 && hsv->s >= 0.7) type = aqu_zombie;
-  else if (hsv->h >= 200 && hsv->h <= 225 && hsv->s >= 0.7) type = blu_zombie;
-
-  else if (hsv->h >= 315 && hsv->h <= 340 && hsv->s <= 0.5) type = pin_berry;
-  else if (hsv->h >= 40  && hsv->h <= 60  && hsv->s >= 0.7) type = yel_berry;
-  else if (hsv->h >= 15  && hsv->h <= 35)                   type = ora_berry;
-  else if (hsv->h >= 0   && hsv->h <= 10  && hsv->s >= 0.7) type = red_berry;
+	//
+  // if      (hsv->h >= 120 && hsv->h <= 132 && hsv->s >= 0.7) type = gre_zombie;
+  // else if (hsv->h >= 250 && hsv->h <= 280 && hsv->s >= 0.7) type = pur_zombie;
+  // else if (hsv->h >= 165 && hsv->h <= 185 && hsv->s >= 0.7) type = aqu_zombie;
+  // else if (hsv->h >= 200 && hsv->h <= 225 && hsv->s >= 0.7) type = blu_zombie;
+	//
+  // else if (hsv->h >= 315 && hsv->h <= 340 && hsv->s <= 0.5) type = pin_berry;
+  // else if (hsv->h >= 40  && hsv->h <= 60  && hsv->s >= 0.7) type = yel_berry;
+  // else if (hsv->h >= 15  && hsv->h <= 35)                   type = ora_berry;
+  // else if (hsv->h >= 0   && hsv->h <= 10  && hsv->s >= 0.7) type = red_berry;
 
   // TODO: add obstacles
   // obstacles go here
-  // type = stump;
-  // type = tree;
-  // type = wall;
+	// if (hsv->h >= 220 && hsv->h <= 230 && hsv->s <= 0.4) type = wall;
+	if (hsv->h >= 220 && hsv->h <= 230 && hsv->s <= 0.35 && hsv->v < 0.1) type = stump;
+	else if (hsv->s < 0.4 && hsv->v < 0.2) type = tree;
+
 
   return type;
 }
@@ -261,15 +264,32 @@ void obs_update(BoundingBox * box, int type, int x, int y)
     box->type = type;
     box->x[0] = box->x[1] = x;
     box->y[0] = box->y[1] = y;
+
+	} else if (box->type == wall ){
+		// walls have special procedures for tracking the xy data - we need 2 yranges
+		if(x < box->x[0]) box->x[0] = x;
+		if (x < box->x[1]) box->x[0] = y;
+
+		if(x == box->x[0]) {
+			if(y > box->y[1]) box->y[1] = y;
+	    if (y < box->y[0]) box->y[0] = y;
+		}
+
+		if (x == box->x[1]) {
+			if(y > box->y1[1]) box->y1[1] = y;
+	    if (y < box->y1[0]) box->y1[0] = y;
+		}
+
   } else {
-    // update bounding box info
+    // update bounding box info normally
     if(x > box->x[1]) box->x[1] = x;
-    else if (x < box->x[0]) box->x[0] = x;
+    if (x < box->x[0]) box->x[0] = x;
 
     if(y > box->y[1]) box->y[1] = y;
-    else if (y < box->y[0]) box->y[0] = y;
+    if (y < box->y[0]) box->y[0] = y;
   }
 }
+
 
 /* Calculate position information*/
 float estimate_vertical_distance(BoundingBox * obj)
@@ -284,36 +304,95 @@ float estimate_vertical_distance(BoundingBox * obj)
   } else if (obj->type == red_berry || obj->type == pin_berry ||
           obj->type == ora_berry || obj->type == yel_berry) {
       y_true = 0.1;
-  } // TODO add ref heights for obstacles
+
+  } else if (obj->type == wall) {
+		y_true = 2.0;
+
+	} else if (obj->type == stump) {
+		y_true = 0.1;
+	}
+
+	if(y_px >= 32 && obj->type != wall) {
+			// cheat using width instead (just for zombies and trees)
+			printf("Got here!\n");
+			int x_true = 0;
+			int x_px = obj->x[1] - obj->x[0];
+			if(obj->type == tree) {
+				x_true = 0.3;
+			} else if (obj->type == gre_zombie || obj->type == blu_zombie ||
+		        obj->type == pur_zombie || obj->type == aqu_zombie) {
+				x_true = 0.4;
+			}
+
+			if(x_true > 0) return((float) x_true * FOCAL_LENGTH / x_px );
+	}
 
   return((float) y_true * FOCAL_LENGTH / y_px);
 }
-void calculate_XY_pos(BoundingBox * box, Obj * pos, int cam_id)
+void calculate_XY_pos(BoundingBox * box, Obj * pos)
 {
+	// check if tree or stump
+	if(box->type == stump) {
+		int xrange = box->x[1] - box->x[0];
+		int yrange = box->y[1] - box->y[0];
+
+		if(yrange >= 32 && xrange <= yrange * 2) {
+			// we misclassified a stump as a tree
+			box->type = tree;
+		}
+	}
+
   int x_avg = (box->x[1] - box->x[0]) / 2 - 64;
   float z = estimate_vertical_distance(box);
   float theta = atan((float) x_avg / FOCAL_LENGTH);
 
   pos->type = box->type;
-
-	switch (cam_id) {
-		case 4: // front cam
-			pos->x = z * sin(theta);
-			pos->y = z * cos(theta);
-			break;
-		case 8: // back cam
-			pos->x = -1 * z * sin(theta);
-			pos->y = -1 * z * cos(theta);
-			break;
-		case 9: // right cam
-			pos->x = z * cos(theta);
-			pos->y = -1 * z * sin(theta);
-			break;
-		case 10: // left cam
-			pos->x = -1 * z * cos(theta);
-			pos->y = z * sin(theta);
-			break;
+	switch (box->cam) {
+				case 4: // front cam
+					pos->x = z * sin(theta);
+					pos->y = z * cos(theta);
+					break;
+				case 8: // back cam
+					pos->x = -1 * z * sin(theta);
+					pos->y = -1 * z * cos(theta);
+					break;
+				case 9: // right cam
+					pos->x = z * cos(theta);
+					pos->y = -1 * z * sin(theta);
+					break;
+				case 10: // left cam
+					pos->x = -1 * z * cos(theta);
+					pos->y = z * sin(theta);
+					break;
 	}
+}
+
+/* Process a wall's positional information */
+void process_wall(BoundingBox * box, Obj * pos)
+{
+	pos->type = wall;
+
+	// get position data for each side of the wall
+	Obj tmp_pos;
+	BoundingBox tmp_box;
+
+	tmp_pos.x = tmp_pos.y = 0; // to make the compiler happy
+
+	tmp_box.type = wall;
+	tmp_box.cam = box->cam;
+	tmp_box.x[0] = tmp_box.x[1] = box->x[0];
+	tmp_box.y[0] = box->y[0]; tmp_box.y[1] = box->y[1];
+	calculate_XY_pos(&tmp_box, &tmp_pos);
+
+	pos->x = tmp_pos.x;
+	pos->y = tmp_pos.y;
+
+	tmp_box.x[0] = tmp_box.x[1] = box->x[1];
+	tmp_box.y[0] = box->y1[0]; tmp_box.y[1] = box->y1[1];
+	calculate_XY_pos(&tmp_box, &tmp_pos);
+
+	pos->x1 = tmp_pos.x;
+	pos->y1 = tmp_pos.y;
 }
 
 /* Process data from a single camera input */
@@ -324,12 +403,19 @@ void process_single_image(int cam_id, BoundingBox * objs)
   const unsigned char * image = wb_camera_get_image(cam_id);
   HsvColor pxl;
 
-	for(int i = 0; i < 12; i++) objs[i].type = -1;
+	for(int i = 0; i < 12; i++) {
+		objs[i].type = -1;
+		objs[i].cam = cam_id;
+	}
 
   for (int x = 0; x < 128; x++) {
     for (int y = 0; y < 64; y++) {
       get_pixel_data(image, x, y, &pxl);
       type = color_match(&pxl);
+
+			// // TODO remove
+			// if(type == tree) printf("%d: %d, %d. HSV %f, %f, %f\n", cam_id, x, y,
+			// 		pxl.h, pxl.s, pxl.v);
 
       if (type >= 0) {
         obs_update(&(objs[type]), type, x, y);
@@ -352,11 +438,19 @@ Obj * process_input()
     process_single_image(cameras[j], boxes);
 
     // process info
-		// TODO: fix bug that's causing crash
     for(int i = 0; i < 12; i++) { // TODO fix for variable length?
-      if(boxes[i].type != -1) {
-        calculate_XY_pos(&(boxes[i]), &(results[len++]), cameras[j]);
+			if(boxes[i].type == wall) {
+				process_wall(&(boxes[i]), &(results[len++]));
+
+			} else if(boxes[i].type != -1) {
+        calculate_XY_pos(&(boxes[i]), &(results[len++]));
       }
+
+			// TODO remove
+			// if(boxes[i].type == stump) {
+			// 	printf("stump: camera %d xrange [%d, %d], yrange [%d, %d]\n",
+			//  		j, boxes[i].x[0], boxes[i].x[1], boxes[i].y[0], boxes[i].y[1]);
+			// }
     }
   }
   results[len].type = -1;
@@ -366,93 +460,93 @@ Obj * process_input()
 //////////////////////////////////////////
 
 /* BEHAVIOR AND CONTROL FUNCTIONS */
-
+/*
 // Return vector computed by robot going directly away from the obstacle
-// Vector avoid_single_obstacle(RobotPos robot, Pos obstacle)
-// // currently assuming obstacle pos is absolute - could also be relative too
-// {
-//   Vector v;
-//   v = malloc(sizeof(struct vector)); // must be freed
-//
-//   v->x = robot.x - obstacle.x;
-//   v->y = robot.y - obstacle.y;
-//
-//   return v;
-// }
+Vector avoid_single_obstacle(RobotPos robot, Pos obstacle)
+// currently assuming obstacle pos is absolute - could also be relative too
+{
+  Vector v;
+  v = malloc(sizeof(struct vector)); // must be freed
+
+  v->x = robot.x - obstacle.x;
+  v->y = robot.y - obstacle.y;
+
+  return v;
+}
 
 // Return vector computed by robot going directly away from the zombie,
 // but a multiplying factor is at work as well.
-// Vector avoid_zombie(RobotPos robot, Posi* zombie, int factor)
-// {
-//   Vector v;
-//   v = malloc(sizeof(struct vector)); // must be freed
-//
-//   v->x = 0;
-//   v->y = 0;
-//
-//   while(*zombie != NULL) {
-//     v->x += (robot.x - (*zombie)->x) * factor;
-//     v->y += (robot.y - (*zombie)->y) * factor;
-//     zombie++;
-//   }
-//   return v;
-// }
-//
-// // TODO: Add a variation with mutliple inputs
-// // Return vector computed by robot going directly to the food
-// Vector looking_for_food(RobotPos robot, Pos food, int factor)
-// {
-//   Vector v;
-//   v = malloc(sizeof(struct vector)); // must be freed
-//
-//   v->x = (robot.x - food.x) * factor;
-//   v->y = (robot.y - food.y) * factor;
-//
-//   return v;
-// }
-//
-// // TODO: update for new spec
-// // Given the parameters, execute commands for the actions
-// void arbiter(RobotPos robot, Pos obstacle, Posi* zombie, Pos food)
-// {
-//   // calculate behavior output vectors here
-//   Vector v_avoid_obstacle = avoid_single_obstacle(robot, obstacle);
-//   // Tweak factor based on health, type of zombie, and proximity
-//   // The tweaking might happen elsewhere
-//   Vector v_avoid_zombie = avoid_zombie(robot, zombie, 2);
-//   // Change factor when low energy, decrease when high energy
-//   Vector v_find_food = looking_for_food(robot, food, -1);
-//
-//   // collect vectors
-//   Vector v_list[4];
-//   v_list[0] = v_avoid_obstacle;
-//   v_list[1] = v_avoid_zombie;
-//   v_list[2] = v_find_food;
-//   v_list[3] = NULL;
-//
-//   // arbitration
-//   Vector v_output = vector_sum(v_list);
-//
-//   // calculate output angle
-//   float angle = acos((v_output->x + v_output->y) / sqrt(v_output->x * v_output->x  + v_output->y * v_output->y));
-//
-//   // convert to degrees
-//   angle = angle / M_PI * 180;
-//
-//   int output_angle = round_to_angle_setting(angle);
-//   if (output_angle == 360)
-//     output_angle = 0;
-//   else if (output_angle < 0)
-//     output_angle += 360;
-//
-//   // printf("%d\n", output_angle);
-//   free(v_output);
-//
-//   // finally, execute command
-//   stop();
-//   rotate_robot(output_angle);
-// }
+Vector avoid_zombie(RobotPos robot, Posi* zombie, int factor)
+{
+  Vector v;
+  v = malloc(sizeof(struct vector)); // must be freed
 
+  v->x = 0;
+  v->y = 0;
+
+  while(*zombie != NULL) {
+    v->x += (robot.x - (*zombie)->x) * factor;
+    v->y += (robot.y - (*zombie)->y) * factor;
+    zombie++;
+  }
+  return v;
+}
+
+// TODO: Add a variation with mutliple inputs
+// Return vector computed by robot going directly to the food
+Vector looking_for_food(RobotPos robot, Pos food, int factor)
+{
+  Vector v;
+  v = malloc(sizeof(struct vector)); // must be freed
+
+  v->x = (robot.x - food.x) * factor;
+  v->y = (robot.y - food.y) * factor;
+
+  return v;
+}
+
+// TODO: update for new spec
+// Given the parameters, execute commands for the actions
+void arbiter(RobotPos robot, Pos obstacle, Posi* zombie, Pos food)
+{
+  // calculate behavior output vectors here
+  Vector v_avoid_obstacle = avoid_single_obstacle(robot, obstacle);
+  // Tweak factor based on health, type of zombie, and proximity
+  // The tweaking might happen elsewhere
+  Vector v_avoid_zombie = avoid_zombie(robot, zombie, 2);
+  // Change factor when low energy, decrease when high energy
+  Vector v_find_food = looking_for_food(robot, food, -1);
+
+  // collect vectors
+  Vector v_list[4];
+  v_list[0] = v_avoid_obstacle;
+  v_list[1] = v_avoid_zombie;
+  v_list[2] = v_find_food;
+  v_list[3] = NULL;
+
+  // arbitration
+  Vector v_output = vector_sum(v_list);
+
+  // calculate output angle
+  float angle = acos((v_output->x + v_output->y) / sqrt(v_output->x * v_output->x  + v_output->y * v_output->y));
+
+  // convert to degrees
+  angle = angle / M_PI * 180;
+
+  int output_angle = round_to_angle_setting(angle);
+  if (output_angle == 360)
+    output_angle = 0;
+  else if (output_angle < 0)
+    output_angle += 360;
+
+  // printf("%d\n", output_angle);
+  free(v_output);
+
+  // finally, execute command
+  stop();
+  rotate_robot(output_angle);
+}
+*/
 
 void robot_control()
 {
