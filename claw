@@ -1,0 +1,45 @@
+
+
+
+
+// Definitions: The most useful function for manipulating the arm is arm_set_rotation(ARM#, RADIAN#). 
+  // ARM# can be from #1-#5
+  // #1 controls the rotation of the bottom gear (allows the claw to swing from side to side, others are just up down)
+  
+
+// EXPLANATION: 
+
+// The procedure I think is best goes as follows:
+  // Drive up to the black block with berry on top
+  // Decide if the berry is more to the right or more to the left. (if it is in center then either works)
+  // Spin ARM1 to make claw point to opposite side of berry (but still face platform)
+  // Then drop arm by making ARM2 as negative as possible
+  // Then swing arm to the direction of berry to knock it off (setting ARM1)
+  // Then for good measure, drop claw further by setting ARM3 more negative and make another pass by setting ARM1 again
+
+// The timer and threshold I made are arbitrary
+// Allow time between actions so that they dont interefere with eachother
+int threshold = 20;
+masterTime++;
+printf("MasterTime:%i\n", masterTime);
+
+if (masterTime == 10 + threshold)
+{
+  arm_set_sub_arm_rotation(ARM1, -0.8);
+}
+else if (masterTime == 2*threshold)
+{
+  arm_set_sub_arm_rotation(ARM2, -10);
+  arm_set_sub_arm_rotation(ARM3, -0.6);
+  arm_set_sub_arm_rotation(ARM4, 0.5);
+}
+else if (masterTime == 3*threshold)
+{
+  arm_set_sub_arm_rotation(ARM1, +2.9);
+}
+else if (masterTime == 4*threshold)
+{
+    //arm_set_sub_arm_rotation(ARM2, -1.5);
+    arm_set_sub_arm_rotation(ARM3, -1.0);
+   arm_set_sub_arm_rotation(ARM1, -2.7);
+}
