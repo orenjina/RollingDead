@@ -250,8 +250,8 @@ int color_match(HsvColor * hsv)
   // TODO: add obstacles
   // obstacles go here
 	// if (hsv->h >= 220 && hsv->h <= 230 && hsv->s <= 0.4) type = wall;
-	if (hsv->h >= 220 && hsv->h <= 230 && hsv->s <= 0.35 && hsv->v < 0.1) type = stump;
-	else if (hsv->s < 0.4 && hsv->v < 0.2) type = tree;
+	if (hsv->h >= 210 && hsv->h <= 230 && hsv->s <= 0.3 && hsv->v < 0.15) type = stump;
+	// else if ((hsv->h >= 220 || hsv->h < 30) && hsv->s < 0.4 && hsv->v < 0.15) type = tree;
 
 
   return type;
@@ -278,6 +278,16 @@ void obs_update(BoundingBox * box, int type, int x, int y)
 		if (x == box->x[1]) {
 			if(y > box->y1[1]) box->y1[1] = y;
 	    if (y < box->y1[0]) box->y1[0] = y;
+		}
+
+	} else if (box->type == tree ){
+		// be extra careful to only look at the width of the stem
+    if(y > box->y[1]) box->y[1] = y;
+    if (y < box->y[0]) box->y[0] = y;
+
+		if(y > 10) {
+	    if(x > box->x[1]) box->x[1] = x;
+    	if (x < box->x[0]) box->x[0] = x;
 		}
 
   } else {
@@ -314,17 +324,22 @@ float estimate_vertical_distance(BoundingBox * obj)
 
 	if(y_px >= 32 && obj->type != wall) {
 			// cheat using width instead (just for zombies and trees)
-			printf("Got here!\n");
-			int x_true = 0;
+
+			float x_true = 0;
 			int x_px = obj->x[1] - obj->x[0];
 			if(obj->type == tree) {
-				x_true = 0.3;
+				x_true = 0.14;
 			} else if (obj->type == gre_zombie || obj->type == blu_zombie ||
 		        obj->type == pur_zombie || obj->type == aqu_zombie) {
 				x_true = 0.4;
 			}
 
-			if(x_true > 0) return((float) x_true * FOCAL_LENGTH / x_px );
+			if(obj->type == tree){
+				float d = x_true * FOCAL_LENGTH / x_px;
+				// if(obj->type == tree) printf("%d %f\n", x_px, d);
+				return d;
+			}
+
 	}
 
   return((float) y_true * FOCAL_LENGTH / y_px);
@@ -447,10 +462,10 @@ Obj * process_input()
       }
 
 			// TODO remove
-			// if(boxes[i].type == stump) {
-			// 	printf("stump: camera %d xrange [%d, %d], yrange [%d, %d]\n",
-			//  		j, boxes[i].x[0], boxes[i].x[1], boxes[i].y[0], boxes[i].y[1]);
-			// }
+			if(boxes[i].type == stump) {
+				printf("stump: camera %d xrange [%d, %d], yrange [%d, %d]\n",
+			 		j, boxes[i].x[0], boxes[i].x[1], boxes[i].y[0], boxes[i].y[1]);
+			}
     }
   }
   results[len].type = -1;
