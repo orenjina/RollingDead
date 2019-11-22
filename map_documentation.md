@@ -1,3 +1,21 @@
+HOW TO USE:
+- First you need to INITIALIZE the map by calling initialize() function
+- Set the variable cameraMaxView to how long you estimate the camera sees into the distance
+- For every timestamp:
+  - You need to call clearSector("LEFT"), clearSector("RIGHT"), clearSector("UP"), clearSector("DOWN")
+    - This just removes what you can see from each camera view point before you replace it
+  - Then use addToMap(object, x, y) for every object that is seen from the cameras
+    - x,y are relative to the robot being at (0,0)
+    - NOTE: you will need to determine if the map needs to be expanded if the x,y values are too large for the current map
+    
+    
+LEFT TO DO:
+- Add different object options for the zombies/berries
+- Add object options for the walls/edge
+- Determine when to expand the map
+
+
+
 Basics:  A 2D array of struct pointers are created with dimensions MAP_HEIGHT and MAP_WIDTH. While the 2D array is litterally indexed by row and column, it can be described instead as (x,y) coordinates with respect to the centerpoint (0,0). In this way, the map can always be displayed with the robot at the center point (0,0). Each node in the map is a mapNode struct that has an object (and some other junk that is only important for other functions), and will probably be added to later on.
 
 Explanation of functions used:
