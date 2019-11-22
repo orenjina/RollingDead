@@ -742,16 +742,18 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
     double roby = robot.y - food->y;
     if (robx >= 0) {
       robx += 1;
+  		v->x += -cons / sqrt(robx);
     } else {
       robx -= 1;
+  		v->x += cons / sqrt(-robx);
     }
     if (roby >= 0) {
       roby += 1;
+  		v->y += -cons / sqrt(roby);
     } else {
       roby -= 1;
+  		v->y += cons / sqrt(-roby);
     }
-		v->x += -cons / sqrt(robx);
-		v->y += -cons / sqrt(roby);
     food++;
 	}
 
@@ -803,29 +805,30 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
 		// given the distance
     double robx = robot.x - zombie->x;
     double roby = robot.y - zombie->y;
+    double fac = 0;
+    if (zombie->type == blu_zombie) {
+      fac = 1.4;
+    } else if (zombie->type == aqu_zombie) {
+      // can use 3 meter conversion, no need to worry if not near
+      fac = 2.2;
+    } else if (zombie->type == gre_zombie) {
+      fac = 1.8;
+    } else {
+      fac = 1.7;
+    }
     if (robx >= 0) {
       robx += 1;
+      v->x += fac / sqrt(robx);
     } else {
       robx -= 1;
+      v->x += -fac / sqrt(-robx);
     }
     if (roby >= 0) {
       roby += 1;
+      v->y += fac / sqrt(roby);
     } else {
       roby -= 1;
-    }
-    if (zombie->type == blu_zombie) {
-      v->x += 1.4 / sqrt(robx);
-      v->y += 1.4 / sqrt(roby);
-    } else if (zombie->type == aqu_zombie) {
-      // can use 3 meter conversion, no need to worry if not near
-      v->x += 2.2 / sqrt(robx);
-      v->y += 2.2 / sqrt(roby);
-    } else if (zombie->type == gre_zombie) {
-      v->x += 1.8 / sqrt(robx);
-      v->y += 1.8 / sqrt(roby);
-    } else {
-      v->x += 1.7 / sqrt(robx);
-      v->y += 1.7 / sqrt(roby);
+      v->y += - fac / sqrt(-roby);
     }
     zombie++;
 	}
