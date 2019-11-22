@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdbool.h>
 
 #include <webots/camera.h>
 #include <webots/accelerometer.h>
@@ -99,8 +100,11 @@ void turn_right()
 #define FOCAL_LENGTH (120) // camera focal length
 #define MAX_OBJS (32) // max # of detected objects in total FOV
 
-int cameras[3] = {4, 8, 9}; // cam ids of the cameras we're using
-// front, back, left
+// the ratio of time to turn vs time to travel a meter
+#define TURN_FACTOR (3)
+
+int cameras[4] = {4, 8, 9, 10}; // cam ids of the cameras we're using
+// front, back, left, right
 
 /* TYPEDEFS */
 enum types {blu_zombie, aqu_zombie, gre_zombie, pur_zombie,
@@ -119,9 +123,15 @@ typedef struct obj_position {
   int type;
   float x;
   float y;
-  float x1;
+  float x1; // x1, y1 are only used for walls
   float y1;
-} Obj;
+} Obj, * Obji;
+
+typedef struct robot_position {
+  int x;
+  int y;
+  int angle; // 0 up, 1 right, 2 down, 3 left
+} RobotPos;
 
 typedef struct rgbColor {
   float r;
@@ -139,6 +149,7 @@ typedef struct vector {
   float x;
   float y;
 } * Vector;
+//////////////////////////
 
 /* UTILITY FUNCTIONS */
 /* 3-input max and min functions (useful for perception math) */
@@ -177,6 +188,35 @@ Vector vector_sum(Vector * vectors)
     vectors++;
   }
   return sum;
+}
+
+// Return the angle from one position to another
+double angle (double x1, double y1, double x2, double y2) {
+	return atan((y2 - y1) / (x2 - x1));
+}
+
+// Return the magnitude of the given vector
+double mag (Vector v) {
+	return sqrt((v->x) * (v->x) + (v->y) * (v->y));
+}
+
+// Return the reverse direction through simple arithmetic
+int reverse (int angle) {
+	return (angle + 2) % 4;
+}
+
+// Do a simple projection and return the magnitude, assuming direction
+// of angle with unit vector. Simple returns since only 4 directions.
+double proj (Vector v, int angle) {
+	if (angle == 0) {
+		return round(v->y);
+	} else if (angle == 1) {
+		return round(v->x);
+	} else if (angle == 2) {
+		return round(-v->y);
+	} else {
+		return round(-v->x);
+	}
 }
 
 ////////////////
@@ -378,6 +418,8 @@ void calculate_XY_pos(BoundingBox * box, Obj * pos)
 					pos->y = z * sin(theta);
 					break;
 	}
+
+	if(!isnormal(pos->x)) pos->type = -2;
 }
 
 /* Process a wall's positional information */
@@ -438,144 +480,238 @@ void process_single_image(int cam_id, BoundingBox * objs)
 }
 
 /* main image processing for 3 cams */
-Obj * process_input()
-{
-  BoundingBox boxes[12]; // TODO fix
-  Obj * results;
-  results = malloc(MAX_OBJS * sizeof(Obj));
-  int len = 0;
+Obj ** process_input() {
+  BoundingBox boxes[12];
 
-  // each camera
-  for(int j = 0; j < 3; j++) {
+  Obj ** results = malloc(3 * sizeof(Obj **));
+  Obji zombies, berries, obstacles;
 
-    process_single_image(cameras[j], boxes);
+  zombies = results[0] = malloc(MAX_OBJS * sizeof(Obj));
+  berries = results[1] = malloc(MAX_OBJS * sizeof(Obj));
+  obstacles = results[2] = malloc(MAX_OBJS * sizeof(Obj));
 
-    // process info
-    for(int i = 0; i < 12; i++) { // TODO fix for variable length?
-			if(boxes[i].type == wall) {
-				process_wall(&(boxes[i]), &(results[len++]));
+  int zlen, blen, olen;
+	zlen = blen = olen = 0;
 
-			} else if(boxes[i].type != -1) {
-        calculate_XY_pos(&(boxes[i]), &(results[len++]));
-      }
+  for(int j = 0; j < 4; j++) {
+		process_single_image(cameras[j], boxes);
+		for(int i = 0; i < 12; i++) {
 
-			// TODO remove
-			if(boxes[i].type == stump) {
-				printf("stump: camera %d xrange [%d, %d], yrange [%d, %d]\n",
-			 		j, boxes[i].x[0], boxes[i].x[1], boxes[i].y[0], boxes[i].y[1]);
-			}
-    }
+	    if(boxes[i].type == wall) {
+	      process_wall(&boxes[i], &(obstacles[olen++]));
+
+	    } else if (boxes[i].type == blu_zombie || boxes[i].type == aqu_zombie ||
+	    		boxes[i].type == gre_zombie || boxes[i].type == pur_zombie) {
+
+	      calculate_XY_pos(&(boxes[i]), &(zombies[zlen++]));
+
+	    } else if (boxes[i].type == red_berry || boxes[i].type == pin_berry ||
+	    		boxes[i].type == yel_berry || boxes[i].type == ora_berry) {
+
+	      calculate_XY_pos(&(boxes[i]), &(berries[blen++]));
+
+	    } else if (boxes[i].type == edge || boxes[i].type == tree || boxes[i].type == stump) {
+
+	      calculate_XY_pos(&(boxes[i]), &(obstacles[olen++]));
+	    }
+		}
   }
-  results[len].type = -1;
+
+  zombies[zlen].type = berries[blen].type = obstacles[olen].type = -1;
   return results;
 }
-
 //////////////////////////////////////////
 
-/* BEHAVIOR AND CONTROL FUNCTIONS */
-/*
-// Return vector computed by robot going directly away from the obstacle
-Vector avoid_single_obstacle(RobotPos robot, Pos obstacle)
-// currently assuming obstacle pos is absolute - could also be relative too
+/* BEHAVIOR FUNCTIONS */
+
+// Do similar things as zombies but for food
+// So same structure but different parameters
+int* findFood(RobotPos robot, Obji food, int len)
 {
-  Vector v;
-  v = malloc(sizeof(struct vector)); // must be freed
-
-  v->x = robot.x - obstacle.x;
-  v->y = robot.y - obstacle.y;
-
-  return v;
-}
-
-// Return vector computed by robot going directly away from the zombie,
-// but a multiplying factor is at work as well.
-Vector avoid_zombie(RobotPos robot, Posi* zombie, int factor)
-{
+	printf("finding berries\n");
   Vector v;
   v = malloc(sizeof(struct vector)); // must be freed
 
   v->x = 0;
   v->y = 0;
 
-  while(*zombie != NULL) {
-    v->x += (robot.x - (*zombie)->x) * factor;
-    v->y += (robot.y - (*zombie)->y) * factor;
-    zombie++;
-  }
-  return v;
+  for (int i = 0; i < len; i++) {
+		// Temporary function on the amount of influence berries have
+		// given the distance
+    v->x += (-2.0 / sqrt(robot.x - (food)->x + 1));
+    v->y += (-2.0 / sqrt(robot.y - (food)->y + 1));
+    food++;
+	}
+
+	// printf("v->x: %f\n", v->x);
+	// printf("v->y: %f\n", v->y);
+
+	int* avoid = malloc(sizeof(int)*5);
+
+
+	// formulas subjected to tweaking
+	avoid[0] = proj(v, robot.angle);
+	avoid[1] = proj(v, reverse(robot.angle));
+	// convenient calculation for the sides
+	avoid[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
+	avoid[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
+	avoid[4] = 0;
+
+	return avoid;
 }
 
-// TODO: Add a variation with mutliple inputs
-// Return vector computed by robot going directly to the food
-Vector looking_for_food(RobotPos robot, Pos food, int factor)
+// Compute vector of the given zombies,
+// but a multiplying factor is at work as well.
+int* avoidZombies(RobotPos robot, Obji zombie, int len)
 {
+	printf("avoiding zombies\n");
   Vector v;
   v = malloc(sizeof(struct vector)); // must be freed
 
-  v->x = (robot.x - food.x) * factor;
-  v->y = (robot.y - food.y) * factor;
+  v->x = 0;
+  v->y = 0;
 
-  return v;
+  for (int i = 0; i < len; i++) {
+		// Temporary function on the amount of influence a zombie has
+		// given the distance
+    v->x += (2.0 / sqrt(robot.x - (zombie)->x + 1));
+    v->y += (2.0 / sqrt(robot.y - (zombie)->y + 1));
+    zombie++;
+	}
+
+	// printf("v->x: %f\n", v->x);
+	// printf("v->y: %f\n", v->y);
+
+	int* avoid = malloc(sizeof(int)*5);
+
+
+	// formulas subjected to tweaking
+	avoid[0] = proj(v, robot.angle);
+	avoid[1] = proj(v, reverse(robot.angle));
+	// convenient calculation for the sides
+	avoid[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
+	avoid[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
+	avoid[4] = 0;
+
+	return avoid;
 }
 
-// TODO: update for new spec
-// Given the parameters, execute commands for the actions
-void arbiter(RobotPos robot, Pos obstacle, Posi* zombie, Pos food)
+int* knockBerryDown(void)
 {
-  // calculate behavior output vectors here
-  Vector v_avoid_obstacle = avoid_single_obstacle(robot, obstacle);
-  // Tweak factor based on health, type of zombie, and proximity
-  // The tweaking might happen elsewhere
-  Vector v_avoid_zombie = avoid_zombie(robot, zombie, 2);
-  // Change factor when low energy, decrease when high energy
-  Vector v_find_food = looking_for_food(robot, food, -1);
+	int* knock = malloc(sizeof(int)*5);
+	knock[0] = 0;
+	knock[1] = 0;
+	knock[2] = 0;
+	knock[3] = 0;
+	knock[4] = 0;
+	// knock[4] = 10000;
 
-  // collect vectors
-  Vector v_list[4];
-  v_list[0] = v_avoid_obstacle;
-  v_list[1] = v_avoid_zombie;
-  v_list[2] = v_find_food;
-  v_list[3] = NULL;
-
-  // arbitration
-  Vector v_output = vector_sum(v_list);
-
-  // calculate output angle
-  float angle = acos((v_output->x + v_output->y) / sqrt(v_output->x * v_output->x  + v_output->y * v_output->y));
-
-  // convert to degrees
-  angle = angle / M_PI * 180;
-
-  int output_angle = round_to_angle_setting(angle);
-  if (output_angle == 360)
-    output_angle = 0;
-  else if (output_angle < 0)
-    output_angle += 360;
-
-  // printf("%d\n", output_angle);
-  free(v_output);
-
-  // finally, execute command
-  stop();
-  rotate_robot(output_angle);
+	return knock;
 }
-*/
+
+int* explore(void)
+{
+	int* explore = malloc(sizeof(int)*5);
+	explore[0] = 0;
+	explore[1] = 0;
+	explore[2] = 0;
+	explore[3] = 0;
+	explore[4] = 0;
+
+	return explore;
+}
+
+int* avoidObstacles(void)
+{
+	int* obstacles = malloc(sizeof(int)*5);
+	obstacles[0] = 0;
+	obstacles[1] = 0;
+	obstacles[2] = 0;
+	obstacles[3] = 0;
+	obstacles[4] = 0;
+
+	return obstacles;
+}
+
+
+// Arbiter decides which action to take
+// For now ties go to the first tie one in array *CAN BE CHANGED*
+// [0]: forward, [1]: back, [2]: left, [3]: right, [4]: do nothing
+//
+// Gets all arguments from sensors and internal map
+// Parameter can be further explained here
+void arbiter(RobotPos robot, Obji zombie, int zombie_len, Obji food, int food_len, Obji obstacles, int obs_len)
+{
+	// TODO fix for changed pointer type
+
+	int* foodVote = findFood(robot, food, food_len);
+	int* avoidObstaclesVote = avoidObstacles();
+	int* exploreVote = explore();
+	int* knockBerryVote = knockBerryDown();
+	int* avoidZombiesVote = avoidZombies(robot, zombie, zombie_len);
+
+	// for (int i = 0; i < 5; i++) {
+	// 	printf("%d\n", avoidZombiesVote[i]);
+	// }
+
+	int* finalVotes = malloc(sizeof(int)*5);
+	int winningIndex = 0;
+
+	for (int i = 0; i < 5; i++)
+	{
+		finalVotes[i] = foodVote[i] + avoidObstaclesVote[i] + exploreVote[i] + knockBerryVote[i] + avoidZombiesVote[i];
+		if (finalVotes[i] > finalVotes[winningIndex])
+		{
+			winningIndex = i;
+		}
+	}
+
+	if (winningIndex == 0)
+	{
+		printf("forwards won\n");
+		// go_forward();
+	}
+	else if (winningIndex == 1)
+	{
+		printf("backwards won\n");
+		// go_backward();
+	}
+	else if (winningIndex == 2)
+	{
+		printf("left won\n");
+		// turn_left();
+	}
+	else if (winningIndex == 3)
+	{
+		printf("right won\n");
+		// turn_right();
+	}
+	else if (winningIndex == 4)
+	{
+		printf("do nothing won\n");
+		// stop();
+	}
+}
 
 void robot_control()
 {
   // TODO
-	Obj * detected = process_input();
-	Obj * orig = detected;
-	while((*detected).type != -1) {
-		printf("Detected: type %d, position (%f, %f)\n",
-						(*detected).type, (*detected).x, (*detected).y);
+	Obj ** detected = process_input();
 
-		detected++;
-	}
-	free(orig);
+	Obj * zombies;
+	Obj * berries;
+	Obj * obstacles;
+	zombies = detected[0];
+	berries = detected[1];
+	obstacles = detected[2];
+
+	// call to arbiter
+	// motor output
+
+
+	free(zombies); free(berries); free(obstacles);
+	free(detected);
 }
-
-
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
