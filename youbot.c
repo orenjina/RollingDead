@@ -151,6 +151,9 @@ typedef struct vector {
 } * Vector;
 //////////////////////////
 
+/* intialize robot position */
+RobotPos robot_pos;
+
 /* UTILITY FUNCTIONS */
 /* 3-input max and min functions (useful for perception math) */
 float mmin(float a, float b, float c)
@@ -345,7 +348,6 @@ void obs_update(BoundingBox * box, int type, int x, int y)
   }
 }
 
-
 /* Calculate position information*/
 float estimate_vertical_distance(BoundingBox * obj)
 {
@@ -536,7 +538,7 @@ Obj ** process_input() {
 
 // Do similar things as zombies but for food
 // So same structure but different parameters
-int* findFood(RobotPos robot, Obji food, int len)
+int* findFood(RobotPos robot, Obji food)
 {
 	printf("finding berries\n");
   Vector v;
@@ -545,13 +547,19 @@ int* findFood(RobotPos robot, Obji food, int len)
   v->x = 0;
   v->y = 0;
 
-  for (int i = 0; i < len; i++) {
-		// Temporary function on the amount of influence berries have
-		// given the distance
-    v->x += (-2.0 / sqrt(robot.x - (food)->x + 1));
-    v->y += (-2.0 / sqrt(robot.y - (food)->y + 1));
-    food++;
+	while((*food).type != -1) {
+		v->x += (-2.0 / sqrt(robot.x - food->x + 1));
+		v->y += (-2.0 / sqrt(robot.y - food->y + 1));
+		food++;
 	}
+
+  // for (int i = 0; i < len; i++) {
+	// 	// Temporary function on the amount of influence berries have
+	// 	// given the distance
+  //   v->x += (-2.0 / sqrt(robot.x - (food)->x + 1));
+  //   v->y += (-2.0 / sqrt(robot.y - (food)->y + 1));
+  //   food++;
+	// }
 
 	// printf("v->x: %f\n", v->x);
 	// printf("v->y: %f\n", v->y);
@@ -572,7 +580,7 @@ int* findFood(RobotPos robot, Obji food, int len)
 
 // Compute vector of the given zombies,
 // but a multiplying factor is at work as well.
-int* avoidZombies(RobotPos robot, Obji zombie, int len)
+int* avoidZombies(RobotPos robot, Obji zombie)
 {
 	printf("avoiding zombies\n");
   Vector v;
@@ -581,13 +589,19 @@ int* avoidZombies(RobotPos robot, Obji zombie, int len)
   v->x = 0;
   v->y = 0;
 
-  for (int i = 0; i < len; i++) {
-		// Temporary function on the amount of influence a zombie has
-		// given the distance
+	while((*zombie).type != -1) {
     v->x += (2.0 / sqrt(robot.x - (zombie)->x + 1));
     v->y += (2.0 / sqrt(robot.y - (zombie)->y + 1));
     zombie++;
 	}
+	//
+  // for (int i = 0; i < len; i++) {
+	// 	// Temporary function on the amount of influence a zombie has
+	// 	// given the distance
+  //   v->x += (2.0 / sqrt(robot.x - (zombie)->x + 1));
+  //   v->y += (2.0 / sqrt(robot.y - (zombie)->y + 1));
+  //   zombie++;
+	// }
 
 	// printf("v->x: %f\n", v->x);
 	// printf("v->y: %f\n", v->y);
@@ -635,7 +649,8 @@ double* explore(void)
 	return explore;
 }
 
-int* avoidObstacles(RobotPos robot, Obji obs, int len)
+
+int* avoidObstacles(RobotPos robot, Obji obs)
 {
 	printf("obstacle avoiding\n");
   Vector v;
@@ -644,13 +659,19 @@ int* avoidObstacles(RobotPos robot, Obji obs, int len)
   v->x = 0;
   v->y = 0;
 
-  for (int i = 0; i < len; i++) {
-		// Temporary function on the amount of influence obstacles have
-		// given the distance
-    v->x += (0.8 / sqrt(robot.x - (obs)->x + 1));
-    v->y += (0.8 / sqrt(robot.y - (obs)->y + 1));
-    obs++;
+	while(obs->type != -1) {
+		v->x += (0.8 / sqrt(robot.x - obs->x + 1));
+		v->y += (0.8 / sqrt(robot.y - obs->y + 1));
+		obs++;
 	}
+
+  // for (int i = 0; i < len; i++) {
+	// 	// Temporary function on the amount of influence obstacles have
+	// 	// given the distance
+  //   v->x += (0.8 / sqrt(robot.x - (obs)->x + 1));
+  //   v->y += (0.8 / sqrt(robot.y - (obs)->y + 1));
+  //   obs++;
+	// }
 
 	// printf("v->x: %f\n", v->x);
 	// printf("v->y: %f\n", v->y);
@@ -676,13 +697,13 @@ int* avoidObstacles(RobotPos robot, Obji obs, int len)
 //
 // Gets all arguments from sensors and internal map
 // Parameter can be further explained here
-void arbiter(RobotPos robot, Obji zombie, int zombie_len, Obji food, int food_len, Obji obs, int obs_len)
+void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs)
 {
-	int* foodVote = findFood(robot, food, food_len);
-	int* avoidObstaclesVote = avoidObstacles(robot, obs, obs_len);
+	int* foodVote = findFood(robot, food);
+	int* avoidObstaclesVote = avoidObstacles(robot, obs);
 	double* exploreVote = explore();
 	int* knockBerryVote = knockBerryDown();
-	int* avoidZombiesVote = avoidZombies(robot, zombie, zombie_len);
+	int* avoidZombiesVote = avoidZombies(robot, zombie);
 
 	// for (int i = 0; i < 5; i++) {
 	// 	printf("%d\n", avoidZombiesVote[i]);
@@ -725,6 +746,8 @@ void arbiter(RobotPos robot, Obji zombie, int zombie_len, Obji food, int food_le
 		printf("do nothing won\n");
 		// stop();
 	}
+
+	robot.angle = robot_angle;
 }
 
 void robot_control()
@@ -741,13 +764,14 @@ void robot_control()
 
 	Obj * tmp = obstacles;
 	// for debugging
-	while((*tmp).type > 0) {
-		printf("%d, %f, %f\n", tmp->type, tmp->x, tmp->y);
-		tmp++;
-	}
+	// while((*tmp).type > 0) {
+	// 	printf("%d, %f, %f\n", tmp->type, tmp->x, tmp->y);
+	// 	tmp++;
+	// }
 
 	// call to arbiter
 	// motor output
+	arbiter(robot_pos, zombies, berries, obstacles);
 
 
 	free(zombies); free(berries); free(obstacles);
@@ -786,6 +810,9 @@ int main(int argc, char **argv)
   //////////////////////////////////////////////////////////////////////////////////////////////////////////
   ///////////////////////// CHANGE CODE BELOW HERE ONLY ////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////////////////////
+	robot_pos.x = robot_pos.y = 0;
+	robot_pos.angle = robot_angle;
+
 
   // wb_accelerometer_enable(1,1);
   wb_gps_enable(2,TIME_STEP); // gps
