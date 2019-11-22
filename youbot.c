@@ -810,13 +810,13 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
   v = malloc(sizeof(struct vector)); // must be freed
 
 	while((*zombie).type != -1) {
-    printf("processing zombie\n");
+    // printf("processing zombie\n");
 		// Temporary function on the amount of influence a zombie has
 		// given the distance
     double robx = robot.x - zombie->x;
     double roby = robot.y - zombie->y;
-    printf("rob->x: %f\n", robx);
-    printf("rob->y: %f\n", roby);
+    // printf("rob->x: %f\n", robx);
+    // printf("rob->y: %f\n", roby);
     double fac = 0;
     if (zombie->type == blu_zombie) {
       fac = 1.4;
@@ -845,8 +845,8 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
     zombie++;
 	}
 
-	printf("v->x: %f\n", v->x);
-	printf("v->y: %f\n", v->y);
+	// printf("v->x: %f\n", v->x);
+	// printf("v->y: %f\n", v->y);
 
 	// formulas subjected to tweaking
 	avoid[0] = proj(v, robot.angle);
@@ -856,7 +856,7 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
 	avoid[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
 	avoid[4] = 0;
 
-  printVotes(avoid);
+  // printVotes(avoid);
 
 	return avoid;
 
@@ -984,12 +984,17 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
   static int last_health = 0;
   static int last_energy = 0;
 
+  // printf("last_health is %d\n", last_health);
+  // printf("cur_health is %d\n", health);
+  // printf("last_energy is %d\n", last_energy);
+  // printf("cur_energy is %d\n", energy);
+
+  // Detect changes in status
   int damaged = 0;
   // int berry = 0;
-
   if (last_health > health) {
     // taking damage
-    if (last_health > health + 1) {
+    if (last_health > health) {
       // Probably zombied
       damaged = 1;
     } else {
@@ -1004,7 +1009,10 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
   } else if (last_energy < energy) {
     // Energy berry
   }
+  last_energy = energy;
+  last_health = health;
 
+  // Make sure to take full turns using this code
   if (turning != 0) {
     if (turning > 0) {
       // We were turning left
@@ -1017,18 +1025,19 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
     return;
   }
 
+  if (damaged) {
+    printf("---------------DAMAGED-----------------\n");
+  }
+
 	double* foodVote = findFood(robot, food, zombie, health, energy, armour);
 	double* avoidObstaclesVote = avoidObstacles(robot, obs);
 	double* exploreVote = explore();
 	double* knockBerryVote = knockBerryDown();
 	double* avoidZombiesVote = avoidZombies(robot, zombie, armour);
 
-	// for (int i = 0; i < 5; i++) {
-	// 	printf("%d\n", avoidZombiesVote[i]);
-	// }
 
-  printf("vote results:\n");
-  printVotes(avoidZombiesVote);
+  // printf("vote results:\n");
+  // printVotes(avoidZombiesVote);
 	// double* finalVotes = malloc(sizeof(double)*5);
 	double finalVotes[5];
 	int winningIndex = 0;
@@ -1095,7 +1104,7 @@ void robot_control(int health, int energy, int armour)
 
 	// motor output
   robot_pos.angle = robot_angle / 90;
-  printf("current angle is %d\n", robot_pos.angle);
+  // printf("current angle is %d\n", robot_pos.angle);
 	arbiter(robot_pos, zombies, berries, obstacles, health, energy, armour);
 
 
