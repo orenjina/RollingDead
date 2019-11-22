@@ -109,9 +109,9 @@ void turn_right()
 
 
 // the ratio of time to turn vs time to travel a meter
-#define TURN_FACTOR (10)
+#define TURN_FACTOR (3)
 // discourage travelling backwards if possible
-#define BACK_FACTOR (5)
+#define BACK_FACTOR (1)
 
 int cameras[4] = {4, 8, 9, 10}; // cam ids of the cameras we're using
 // front, back, left, right
@@ -264,13 +264,13 @@ void vectorPerpend(Vector v) {
 // of angle with unit vector. Simple returns since only 4 directions.
 double proj (Vector v, int angle) {
 	if (angle == 0) {
-		return round(v->y);
+		return v->y;
 	} else if (angle == 1) {
-		return round(v->x);
+		return v->x;
 	} else if (angle == 2) {
-		return round(-v->y);
+		return -v->y;
 	} else {
-		return round(-v->x);
+		return -v->x;
 	}
 }
 
@@ -581,6 +581,13 @@ Obj ** process_input() {
 
 /* BEHAVIOR FUNCTIONS */
 
+void printVotes(double * votes) {
+	for(int i = 0; i < 5; i++) {
+			printf("%f ", votes[i]);
+	}
+	putchar('\n');
+}
+
 // fruit[int][int] double :
 // An array containing each fruit type. The first index
 // is based on the color of the fruit, by some deterministic
@@ -768,10 +775,10 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
 
 	// formulas subjected to tweaking
 	seek[0] = proj(v, robot.angle);
-	seek[1] = proj(v, reverse(robot.angle)) - BACK_FACTOR;
+	seek[1] = proj(v, reverse(robot.angle));
 	// convenient calculation for the sides
-	seek[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
-	seek[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
+	seek[2] = proj(v, reverse(robot.angle + 1));
+	seek[3] = proj(v, reverse(robot.angle + 3));
 	seek[4] = 0;
 
 	return seek;
@@ -802,14 +809,14 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
   Vector v;
   v = malloc(sizeof(struct vector)); // must be freed
 
-  struct vector vbuf; // temporary info holding
-	float mag;
-
 	while((*zombie).type != -1) {
+    printf("processing zombie\n");
 		// Temporary function on the amount of influence a zombie has
 		// given the distance
     double robx = robot.x - zombie->x;
     double roby = robot.y - zombie->y;
+    printf("rob->x: %f\n", robx);
+    printf("rob->y: %f\n", roby);
     double fac = 0;
     if (zombie->type == blu_zombie) {
       fac = 1.4;
@@ -838,21 +845,18 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
     zombie++;
 	}
 
-	//  // Temporary function on the amount of influence a zombie has
-	// 	// given the distance (Glenn)
-  //   v->x += (2.0 / sqrt(robot.x - (zombie)->x + 1));
-  //   v->y += (2.0 / sqrt(robot.y - (zombie)->y + 1));
-
-	// printf("v->x: %f\n", v->x);
-	// printf("v->y: %f\n", v->y);
+	printf("v->x: %f\n", v->x);
+	printf("v->y: %f\n", v->y);
 
 	// formulas subjected to tweaking
 	avoid[0] = proj(v, robot.angle);
-	avoid[1] = proj(v, reverse(robot.angle));
+	avoid[1] = proj(v, reverse(robot.angle)) - BACK_FACTOR;
 	// convenient calculation for the sides
 	avoid[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
 	avoid[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
 	avoid[4] = 0;
+
+  printVotes(avoid);
 
 	return avoid;
 
@@ -879,10 +883,10 @@ double* explore(void)
 	// The exploring will most often be moving forwards or backwards,
 	// but sometimes also turning
 	explore[0] = 1.2 + randomN(1, 10) / 10.0;
-	explore[1] = 0;
+	explore[1] = 0.5;
 	explore[2] = 1.0 + randomN(1, 3) / 10.0;
 	explore[3] = 1.0 + randomN(1, 3) / 10.0;
-	explore[4] = -1.0;
+	explore[4] = 0.0;
 
 	return explore;
 }
@@ -947,8 +951,8 @@ double* avoidObstacles(RobotPos robot, Obji obs)
 		}
 		obs++;
 	}
-	printf("v->x: %f\n", v->x);
-	printf("v->y: %f\n", v->y);
+	// printf("v->x: %f\n", v->x);
+	// printf("v->y: %f\n", v->y);
 
 	double* avoid = malloc(sizeof(double)*5);
 
@@ -956,8 +960,8 @@ double* avoidObstacles(RobotPos robot, Obji obs)
 	avoid[0] = proj(v, robot.angle);
 	avoid[1] = proj(v, reverse(robot.angle));
 	// convenient calculation for the sides
-	avoid[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
-	avoid[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
+	avoid[2] = proj(v, reverse(robot.angle + 1));
+	avoid[3] = proj(v, reverse(robot.angle + 3));
 	avoid[4] = 0;
 
 	free(v);
@@ -967,12 +971,6 @@ double* avoidObstacles(RobotPos robot, Obji obs)
 
 
 
-void printVotes(double * votes) {
-	for(int i = 0; i < 5; i++) {
-			printf("%f ", votes[i]);
-	}
-	putchar('\n');
-}
 // Arbiter decides which action to take
 // For now ties go to the first tie one in array *CAN BE CHANGED*
 // [0]: forward, [1]: back, [2]: left, [3]: right, [4]: do nothing
@@ -983,6 +981,29 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
 {
   // Make sure we commit to full turns before progressing through other commands
   static int turning = 0;
+  static int last_health = 0;
+  static int last_energy = 0;
+
+  int damaged = 0;
+  // int berry = 0;
+
+  if (last_health > health) {
+    // taking damage
+    if (last_health > health + 1) {
+      // Probably zombied
+      damaged = 1;
+    } else {
+      // Probably energy drained
+    }
+  } else if (last_health < health) {
+    // Heal berry
+    // fruit_update(); depending on color, other things also accordingly
+  }
+  if (last_energy > energy + 10) {
+    // Energy drain berry
+  } else if (last_energy < energy) {
+    // Energy berry
+  }
 
   if (turning != 0) {
     if (turning > 0) {
@@ -1007,10 +1028,6 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
 	// }
 
   printf("vote results:\n");
-  printVotes(foodVote);
-  printVotes(avoidObstaclesVote);
-  printVotes(exploreVote);
-  printVotes(knockBerryVote);
   printVotes(avoidZombiesVote);
 	// double* finalVotes = malloc(sizeof(double)*5);
 	double finalVotes[5];
@@ -1067,7 +1084,7 @@ void robot_control(int health, int energy, int armour)
 	berries = detected[1];
 	obstacles = detected[2];
 
-	Obj * tmp = obstacles;
+	// Obj * tmp = obstacles;
 	// for debugging
 	// while((*tmp).type > 0) {
 	// 	printf("%d, %f, %f\n", tmp->type, tmp->x, tmp->y);
@@ -1077,6 +1094,8 @@ void robot_control(int health, int energy, int armour)
 	// call to arbiter
 
 	// motor output
+  robot_pos.angle = robot_angle / 90;
+  printf("current angle is %d\n", robot_pos.angle);
 	arbiter(robot_pos, zombies, berries, obstacles, health, energy, armour);
 
 
