@@ -65,78 +65,11 @@ int heuristic (double x1, double y1, double x2, double y2) {
 	return manhattanDist(x1, y1, x2, y2) + TURN * fabs(angle(x1, y2, x2, y2));
 }
 
-// Given item matrix, find the adjacent nodes of the given node
-// Return the number of successors returned
-// G: item matrix
-// n, m: dimension of G
-// source: the given node
-// target: the targetted node
-// suc: output parameter for the successor
-// ini: whether to initialize the initial action or not
-int successor(int*** G, int n, int m, node source, node target, node* suc, int ini)
-{
-  // Go through the possible options
-	int ret = 0;
-  int data[2] = {-1, 1};
-
-  for (int i = 0; i < 2; i++) {
-		int x = source->x;
-		int y = source->y;
-		if (source->dir) {
-	    y = y + data[i];
-	    if (y < 0 || y >= m) {
-	      continue;
-	    }
-		} else {
-    	x = x + data[i];
-	    if (x < 0 || x >= n) {
-	      continue;
-	    }
-		}
-    if (open(G, x, y)) {
-			node newNode = malloc(sizeof(struct LinkedList));
-			// initialize initial action
-			newNode->x = x;
-			newNode->y = y;
-			newNode->dir = source->dir;
-			newNode->t = source->t + 1;
-			newNode->h = heuristic(x, y, target->x, target->y);
-			if (ini) {
-				newNode->ini = i;
-			} else {
-				newNode->ini = source->ini;
-			}
-			newNode->next = NULL;
-			*(suc + ret) = newNode;
-			ret++;
-    }
-  }
-	// Turn
-	node newNode = malloc(sizeof(struct LinkedList));
-	// initialize initial action
-	int x = source->x;
-	int y = source->y;
-	newNode->x = x;
-	newNode->y = y;
-	newNode->dir = (1 - source->dir);
-	newNode->t = source->t + TURN;
-	newNode->h = heuristic(source->x, source->y, target->x, target->y);
-	if (ini) {
-		newNode->ini = 2;
-	} else {
-		newNode->ini = source->ini;
-	}
-	newNode->next = NULL;
-	*(suc + ret) = newNode;
-	ret++;
-	return ret;
-}
-
 // inspect linked list elements, debugging use
 void inspectList(node* head, int num) {
 	printf("-------- begin inspect for list -------\n");
 	for (int i = 0; i < num; i++) {
-		printf("current node is: %x\n", *(head + i));
+		printf("current node is: %x\n", *(head - i));
 	}
 }
 
@@ -186,6 +119,79 @@ void insertAll(node* head, node* const add, int num) {
 	printf("insertall finishes\n");
 }
 
+// Given item matrix, find the adjacent nodes of the given node
+// Return the number of successors returned
+// G: item matrix
+// n, m: dimension of G
+// source: the given node
+// target: the targetted node
+// suc: output parameter for the successor
+// ini: whether to initialize the initial action or not
+int successor(int*** G, int n, int m, node source, node target, node* suc, int ini)
+{
+  // Go through the possible options
+	int ret = 0;
+  int data[2] = {-1, 1};
+
+  for (int i = 0; i < 2; i++) {
+		int x = source->x;
+		int y = source->y;
+		if (source->dir) {
+	    y = y + data[i];
+	    if (y < 0 || y >= m) {
+	      continue;
+	    }
+		} else {
+    	x = x + data[i];
+	    if (x < 0 || x >= n) {
+	      continue;
+	    }
+		}
+    if (open(G, x, y)) {
+			struct LinkedList ne;
+			node newNode = &ne;
+			// initialize initial action
+			newNode->x = x;
+			newNode->y = y;
+			newNode->dir = source->dir;
+			newNode->t = source->t + 1;
+			newNode->h = heuristic(x, y, target->x, target->y);
+			if (ini) {
+				newNode->ini = i;
+			} else {
+				newNode->ini = source->ini;
+			}
+			newNode->next = NULL;
+			**(suc + ret) = ne;
+			ret++;
+    }
+  }
+	printf("Inspecting source\n");
+	inspect(&source);
+	// Turn
+	struct LinkedList ne;
+	node newNode = &ne;
+	// initialize initial action
+	int x = source->x;
+	int y = source->y;
+	newNode->x = x;
+	newNode->y = y;
+	newNode->dir = (1 - source->dir);
+	newNode->t = source->t + TURN;
+	newNode->h = heuristic(source->x, source->y, target->x, target->y);
+	if (ini) {
+		newNode->ini = 2;
+	} else {
+		newNode->ini = source->ini;
+	}
+	newNode->next = NULL;
+	**(suc + ret) = ne;
+	ret++;
+	inspectList(suc, 3);
+	return ret;
+}
+
+
 // Return the result of how to reach the target
 // Return null if we are already there
 // Return 1 if going forwards, 2 if going backwards, 3 if turn
@@ -214,16 +220,25 @@ int astar(int*** G, int n, int m, int x1, int y1, int dir, int x2, int y2) {
 
 	node list = (node) malloc(3 * sizeof(struct LinkedList));
 
+	printf("Head is given the pointer %x\n", head);
+	printf("List is given the pointer %x\n", list);
+	printf("List[2] is given the pointer %x\n", &(list[2]));
+	inspectList(&list, 3);
+
 	// fencepost so that we record the initial action correctly
 	node cur = head;
+	inspect(&head);
+	printf("head was: %x\n", head);
 	int res;
 	res = successor(G, n, m, cur, target, &list, 1);
 	printf("res: %d\n", res);
-	insertAll(&cur, &list, res);
+	printf("now head is: %x\n", head);
+	head = cur->next;
+	printf("now head is: %x\n", head);
+	inspect(&head);
+	insertAll(&head, &list, res);
 
-	cur = cur->next;
-	free(head);
-	head = cur;
+	free(cur);
 
 	while (head != NULL) {
 		printf("loop call\n");
@@ -252,5 +267,6 @@ int astar(int*** G, int n, int m, int x1, int y1, int dir, int x2, int y2) {
 		// Move the head along, and free the memory before
 		free(cur);
 	}
-	return 0;
+
+	return -1;
 }
