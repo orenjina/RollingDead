@@ -737,15 +737,25 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
 
 	while((*food).type != -1) {
     double cons = fruit_util(health, energy, armour, robot, zombie, food->type);
-    printf("const is : %f\n", cons);
-		v->x += (-cons / sqrt(robot.x - food->x + 1));
-		v->y += (-cons / sqrt(robot.y - food->y + 1));
+    // printf("const is : %f\n", cons);
+    double robx = robot.x - food->x;
+    double roby = robot.y - food->y;
+    if (robx >= 0) {
+      robx += 1;
+    } else {
+      robx -= 1;
+    }
+    if (roby >= 0) {
+      roby += 1;
+    } else {
+      roby -= 1;
+    }
+		v->x += -cons / sqrt(robx);
+		v->y += -cons / sqrt(roby);
     food++;
 	}
 
-	double* avoid = malloc(sizeof(double)*5);
-
-	int* seek = malloc(sizeof(int)*5);
+	double* seek = malloc(sizeof(double)*5);
 
 	// formulas subjected to tweaking
 	seek[0] = proj(v, robot.angle);
@@ -791,22 +801,31 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
 	while((*zombie).type != -1) {
 		// Temporary function on the amount of influence a zombie has
 		// given the distance
-    if (zombie->type == blu_zombie) {
-      v->x += (1.4 / sqrt(robot.x - (zombie)->x + 1));
-      v->y += (1.4 / sqrt(robot.y - (zombie)->y + 1));
-    } else if (zombie->type == aqu_zombie) {
-      // does not matter to us really
-      int tempx = robot.x - (zombie)->x;
-      int tempy = robot.y - (zombie)->y;
-      // can use 3 meter conversion, no need to worry if not near
-      v->x += (2.2 / sqrt(tempx + 1));
-      v->y += (2.2 / sqrt(tempy + 1));
-    } else if (zombie->type == gre_zombie) {
-      v->x += (1.8 / sqrt(robot.x - (zombie)->x + 1));
-      v->y += (1.8 / sqrt(robot.y - (zombie)->y + 1));
+    double robx = robot.x - zombie->x;
+    double roby = robot.y - zombie->y;
+    if (robx >= 0) {
+      robx += 1;
     } else {
-      v->x += (1.7 / sqrt(robot.x - (zombie)->x + 1));
-      v->y += (1.7 / sqrt(robot.y - (zombie)->y + 1));
+      robx -= 1;
+    }
+    if (roby >= 0) {
+      roby += 1;
+    } else {
+      roby -= 1;
+    }
+    if (zombie->type == blu_zombie) {
+      v->x += 1.4 / sqrt(robx);
+      v->y += 1.4 / sqrt(roby);
+    } else if (zombie->type == aqu_zombie) {
+      // can use 3 meter conversion, no need to worry if not near
+      v->x += 2.2 / sqrt(robx);
+      v->y += 2.2 / sqrt(roby);
+    } else if (zombie->type == gre_zombie) {
+      v->x += 1.8 / sqrt(robx);
+      v->y += 1.8 / sqrt(roby);
+    } else {
+      v->x += 1.7 / sqrt(robx);
+      v->y += 1.7 / sqrt(roby);
     }
     zombie++;
 	}
@@ -818,58 +837,6 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
 
 	printf("v->x: %f\n", v->x);
 	printf("v->y: %f\n", v->y);
-
-	// formulas subjected to tweaking
-	avoid[0] = proj(v, robot.angle);
-	avoid[1] = proj(v, reverse(robot.angle));
-	// convenient calculation for the sides
-	avoid[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
-	avoid[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
-	avoid[4] = 0;
-
-	return avoid;
-}
-
-// Compute vector of the given zombies,
-// but a multiplying factor is at work as well.
-double* map_avoid_zombies(RobotPos robot, Obji zombie, int len)
-{
-	printf("avoiding zombies\n");
-
-	double* avoid = malloc(sizeof(double)*5);
-
-  // wait to enable robot armour in the info screen
-  // printf("robot armour info: %s\n", robot_info.armour);
-
-  Vector v;
-  v = malloc(sizeof(struct vector)); // must be freed
-
-  v->x = 0;
-  v->y = 0;
-
-  for (int i = 0; i < len; i++) {
-		// Temporary function on the amount of influence a zombie has
-		// given the distance
-    if (zombie->type == blu_zombie) {
-      v->x += (1.0 / sqrt(robot.x - (zombie)->x + 1));
-      v->y += (1.0 / sqrt(robot.y - (zombie)->y + 1));
-    } else if (zombie->type == aqu_zombie) {
-      // does not matter to us really
-      v->x += (0.1 / sqrt(robot.x - (zombie)->x + 1));
-      v->y += (0.1 / sqrt(robot.y - (zombie)->y + 1));
-    } else if (zombie->type == gre_zombie) {
-      v->x += (0.5 / sqrt(robot.x - (zombie)->x + 1));
-      v->y += (0.5 / sqrt(robot.y - (zombie)->y + 1));
-    } else {
-      // matters little if we have to get the fruit anyways
-      v->x += (0.4 / sqrt(robot.x - (zombie)->x + 1));
-      v->y += (0.4 / sqrt(robot.y - (zombie)->y + 1));
-    }
-    zombie++;
-	}
-
-	// printf("v->x: %f\n", v->x);
-	// printf("v->y: %f\n", v->y);
 
 	// formulas subjected to tweaking
 	avoid[0] = proj(v, robot.angle);
@@ -1004,6 +971,7 @@ void printVotes(int * votes) {
 // Parameter can be further explained here
 void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int energy, int armour)
 {
+  printf("arbiting\n");
 	double* foodVote = findFood(robot, food, zombie, health, energy, armour);
 	double* avoidObstaclesVote = avoidObstacles(robot, obs);
 	double* exploreVote = explore();
@@ -1018,40 +986,40 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
 	double finalVotes[5];
 	int winningIndex = 0;
 
-	// for (int i = 0; i < 5; i++)
-	// {
-	// 	finalVotes[i] = foodVote[i] + avoidObstaclesVote[i] + exploreVote[i] + knockBerryVote[i] + avoidZombiesVote[i];
-	// 	if (finalVotes[i] > finalVotes[winningIndex])
-	// 	{
-	// 		winningIndex = i;
-	// 	}
-	// }
-	//
-	// if (winningIndex == 0)
-	// {
-	// 	printf("forwards won\n");
-	// 	// go_forward();
-	// }
-	// else if (winningIndex == 1)
-	// {
-	// 	printf("backwards won\n");
-	// 	// go_backward();
-	// }
-	// else if (winningIndex == 2)
-	// {
-	// 	printf("left won\n");
-	// 	// turn_left();
-	// }
-	// else if (winningIndex == 3)
-	// {
-	// 	printf("right won\n");
-	// 	// turn_right();
-	// }
-	// else if (winningIndex == 4)
-	// {
-	// 	printf("do nothing won\n");
-	// 	// stop();
-	// }
+	for (int i = 0; i < 5; i++)
+	{
+		finalVotes[i] = foodVote[i] + avoidObstaclesVote[i] + exploreVote[i] + knockBerryVote[i] + avoidZombiesVote[i];
+		if (finalVotes[i] > finalVotes[winningIndex])
+		{
+			winningIndex = i;
+		}
+	}
+
+	if (winningIndex == 0)
+	{
+		printf("forwards won\n");
+		// go_forward();
+	}
+	else if (winningIndex == 1)
+	{
+		printf("backwards won\n");
+		// go_backward();
+	}
+	else if (winningIndex == 2)
+	{
+		printf("left won\n");
+		// turn_left();
+	}
+	else if (winningIndex == 3)
+	{
+		printf("right won\n");
+		// turn_right();
+	}
+	else if (winningIndex == 4)
+	{
+		printf("do nothing won\n");
+		// stop();
+	}
 
 	robot.angle = robot_angle;
 }
