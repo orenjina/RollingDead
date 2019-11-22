@@ -100,6 +100,13 @@ void turn_right()
 #define FOCAL_LENGTH (120) // camera focal length
 #define MAX_OBJS (32) // max # of detected objects in total FOV
 
+#define TYPES 4 // types of fruits (colors), uses the
+#define FUNCS 4 // functions of fruits (+hp, +en, -en, +arm)
+#define PRI 0.7 // probability of the primary function
+#define SEC 0.3 // probability of the secondary function
+#define FRUIT_BASE 4 // There are 4 indices before types of fruits are in the enum
+
+
 // the ratio of time to turn vs time to travel a meter
 #define TURN_FACTOR (3)
 
@@ -203,6 +210,15 @@ Vector vector_sum(Vector * vectors)
     vectors++;
   }
   return sum;
+}
+
+// compute the dot product between the 2 inputs, length also required
+double dot(double* first, double* second, int len) {
+  double ret = 0;
+  for (int i = 0; i < len; i++) {
+    ret += first[i] * second[i];
+  }
+  return ret;
 }
 
 // random number between lower and upper
@@ -557,9 +573,160 @@ Obj ** process_input() {
 
 /* BEHAVIOR FUNCTIONS */
 
+// fruit[int][int] double :
+// An array containing each fruit type. The first index
+// is based on the color of the fruit, by some deterministic
+// way of organizing. The second index is based on the
+// function of that color of the fruit. After accessing
+// both indices, the data structure return the probability
+// of that color of fruit resulting in that property.
+
+// type: red, yel, ora, pink
+// func: +40 energy, +20 health, -20 energy, 10 sec armour
+double fruit[TYPES][FUNCS];
+int fruitob[TYPES][FUNCS];
+
+void fruit_init();
+void compute();
+
+// Initialize the fruit double array with uniform probability
+// Initialize the fruitob double array with 0s
+void fruit_init() {
+  for (int i = 0; i < TYPES; i++) {
+    for (int j = 0; j < FUNCS; j++) {
+      fruit[i][j] = 1 / FUNCS;
+      fruitob[i][j] = 0;
+    }
+  }
+}
+
+// Compute the probabilities according to observations
+void fruit_compute() {
+  for (int i = 0; i < TYPES; i++) {
+    int types = 0;
+    // Recrod which entries are non-zero
+    int a = -1;
+    int b = -1;
+    for (int j = 0; j < FUNCS; j++) {
+      if (fruitob[i][j] > 0) {
+        if (a >= 0) {
+          b = j;
+        } else {
+          a = j;
+        }
+        types++;
+      }
+    }
+    if (types == 0) {
+      // No data for this section, uniform distribution
+      for (int j = 0; j < FUNCS; j++) {
+        fruit[i][j] = 1 / FUNCS;
+      }
+    } else if (types == 1) {
+      int p = fruitob[i][a];
+      // Data should be recorded in a
+      for (int j = 0; j < FUNCS; j++) {
+        if (j == a) {
+          double num = pow(PRI, (p + 1)) + pow(SEC, (p + 1));
+          double den = pow(PRI, p) + pow(SEC, p);
+          fruit[i][j] = num / den;
+        } else {
+          double num = pow(PRI, p) * SEC  + pow(SEC, p) * PRI;
+          double den = pow(PRI, p) + pow(SEC, p);
+          // Divide by number of things distributed in
+          fruit[i][j] = num / (FUNCS - 1) / den;
+        }
+      }
+    } else if (types == 2) {
+      // 2 effects confirmed, other effects cannot happen
+      int c1 = fruitob[i][a];
+      int c2 = fruitob[i][b];
+      for (int j = 0; j < FUNCS; j++) {
+        // Probability a is primary
+        double a1 = pow(PRI, c1) * pow(SEC, c2);
+        double b1 = pow(PRI, c2) * pow(SEC, c1);
+        double den = a1 + b1;
+        if (j == a) {
+          fruit[i][j] = a1 / den;
+        } else if (j == b) {
+          fruit[i][j] = b1 / den;
+        } else {
+          fruit[i][j] = 0;
+        }
+      }
+    } else {
+      // This program is wrong or the instructors
+      // are trolling us
+      printf("PANIC");
+    }
+  }
+}
+
+// Update the observation table
+void fruit_update(int type, int func) {
+  fruitob[type - FRUIT_BASE][func] += 1;
+  fruit_compute();
+}
+
+// the utility value of a given type of fruit
+double fruit_util(int health, int energy, int armour, RobotPos robot, Obji zombie, int type) {
+  // compute the values for each function
+  double f[4] = {0.0, 0.0, 0.0, 0.0};
+  // f[0] for the value of 40 energy
+  if (energy == 0) {
+    if (health < 20) {
+      f[0] = 10;
+    } else {
+      f[0] = 6;
+    }
+  } else if (energy < 20) {
+    f[0] = 3;
+  } else if (energy < 60) {
+    f[0] = 2;
+  } else {
+    f[0] = (100.0 - energy) / 20.0;
+  }
+  // f[1] for the value of 20 health
+  if (health < 25) {
+    if (energy < 10) {
+      f[1] = 10;
+    } else {
+      f[1] = 20;
+    }
+  } else if (health < 50) {
+    f[1] = 3;
+  } else if (health < 80) {
+    f[1] = 2;
+  } else {
+    f[1] = (100.0 - health) / 10.0;
+  }
+  // f[2] for the value of -20 energy
+  if (energy == 0) {
+    f[2] = 0;
+  } else if (energy < 20) {
+    f[2] = - (energy / 10.0);
+  } else if (energy < 40) {
+    f[2] = -3;
+  } else if (energy < 80) {
+    f[2] = -2;
+  } else {
+    f[2] = - (100.0 - energy) / 10.0;
+  }
+  // f[3] for the value of armour
+  while((*zombie).type != -1) {
+		// Temporary function on the amount of influence a zombie has
+		// given the distance
+    int xd = 1.0 / (robot.x - (zombie)->x);
+    int yd = 1.0 / (robot.y - (zombie)->y);
+    f[3] += sqrt(xd * xd + yd * yd);
+    zombie++;
+  }
+  return dot(f, fruit[type] - FRUIT_BASE, 4);
+}
+
 // Do similar things as zombies but for food
 // So same structure but different parameters
-int* findFood(RobotPos robot, Obji food)
+double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy, int armour)
 {
 	printf("finding berries\n");
   Vector v;
@@ -568,28 +735,15 @@ int* findFood(RobotPos robot, Obji food)
   v->x = 0;
   v->y = 0;
 
-  struct vector vbuf; // temporary info holding
-	float mag;
-
-	while(food->type != -1) {
-		printf("food xy %f, %f\n", food->x, food->y);
-		vectorCalc(robot, *food, &vbuf);
-		mag = vectorMagnitude(&vbuf);
-		if(mag != 0) {
-			v->x += -1 * vbuf.x / pow(mag, 2.0);
-			v->y += -1 * vbuf.y / pow(mag, 2.0);
-		}
-		// printf("This step xy: %f %f\n", vbuf.x, vbuf.y);
-		food++;
+	while((*food).type != -1) {
+    double cons = fruit_util(health, energy, armour, robot, zombie, food->type);
+    printf("const is : %f\n", cons);
+		v->x += (-cons / sqrt(robot.x - food->x + 1));
+		v->y += (-cons / sqrt(robot.y - food->y + 1));
+    food++;
 	}
 
-	//  // Temporary function on the amount of influence a zombie has
-	// 	// given the distance (Glenn)
-  //   v->x += (2.0 / sqrt(robot.x - (zombie)->x + 1));
-  //   v->y += (2.0 / sqrt(robot.y - (zombie)->y + 1));
-
-	printf("v->x: %f\n", v->x);
-	printf("v->y: %f\n", v->y);
+	double* avoid = malloc(sizeof(double)*5);
 
 	int* seek = malloc(sizeof(int)*5);
 
@@ -604,24 +758,57 @@ int* findFood(RobotPos robot, Obji food)
 	return seek;
 }
 
+// The vectors given by the food spread out in the map, rather than
+// in the sensors. Mapped fruits are less accurate, and likely farther
+// away, so they are given less weights.
+
+
 // Compute vector of the given zombies,
 // but a multiplying factor is at work as well.
-int* avoidZombies(RobotPos robot, Obji zombie)
+double* avoidZombies(RobotPos robot, Obji zombie, int armour)
 {
 	printf("avoiding zombies\n");
+
+	double* avoid = malloc(sizeof(double)*5);
+
+  // We don't care about zombies if we have armour
+  if (armour > 2) {
+    for (int i = 0; i < 5; i++) {
+      avoid[i] = 0;
+    }
+    return avoid;
+  }
+
+  // wait to enable robot armour in the info screen
+  // printf("robot armour info: %s\n", robot_info.armour);
+
   Vector v;
   v = malloc(sizeof(struct vector)); // must be freed
 
   struct vector vbuf; // temporary info holding
 	float mag;
 
-	while(zombie->type != -1) {
-		vectorCalc(robot, *zombie, &vbuf);
-		mag = vectorMagnitude(&vbuf);
-		v->x += vbuf.x / pow(mag, 2.0);
-		v->y += vbuf.y / pow(mag, 2.0);
-		// printf("This step xy: %f %f\n", v->x, v->y);
-		zombie++;
+	while((*zombie).type != -1) {
+		// Temporary function on the amount of influence a zombie has
+		// given the distance
+    if (zombie->type == blu_zombie) {
+      v->x += (1.4 / sqrt(robot.x - (zombie)->x + 1));
+      v->y += (1.4 / sqrt(robot.y - (zombie)->y + 1));
+    } else if (zombie->type == aqu_zombie) {
+      // does not matter to us really
+      int tempx = robot.x - (zombie)->x;
+      int tempy = robot.y - (zombie)->y;
+      // can use 3 meter conversion, no need to worry if not near
+      v->x += (2.2 / sqrt(tempx + 1));
+      v->y += (2.2 / sqrt(tempy + 1));
+    } else if (zombie->type == gre_zombie) {
+      v->x += (1.8 / sqrt(robot.x - (zombie)->x + 1));
+      v->y += (1.8 / sqrt(robot.y - (zombie)->y + 1));
+    } else {
+      v->x += (1.7 / sqrt(robot.x - (zombie)->x + 1));
+      v->y += (1.7 / sqrt(robot.y - (zombie)->y + 1));
+    }
+    zombie++;
 	}
 
 	//  // Temporary function on the amount of influence a zombie has
@@ -631,8 +818,6 @@ int* avoidZombies(RobotPos robot, Obji zombie)
 
 	printf("v->x: %f\n", v->x);
 	printf("v->y: %f\n", v->y);
-
-	int* avoid = malloc(sizeof(int)*5);
 
 	// formulas subjected to tweaking
 	avoid[0] = proj(v, robot.angle);
@@ -645,9 +830,61 @@ int* avoidZombies(RobotPos robot, Obji zombie)
 	return avoid;
 }
 
-int* knockBerryDown(void)
+// Compute vector of the given zombies,
+// but a multiplying factor is at work as well.
+double* map_avoid_zombies(RobotPos robot, Obji zombie, int len)
 {
-	int* knock = malloc(sizeof(int)*5);
+	printf("avoiding zombies\n");
+
+	double* avoid = malloc(sizeof(double)*5);
+
+  // wait to enable robot armour in the info screen
+  // printf("robot armour info: %s\n", robot_info.armour);
+
+  Vector v;
+  v = malloc(sizeof(struct vector)); // must be freed
+
+  v->x = 0;
+  v->y = 0;
+
+  for (int i = 0; i < len; i++) {
+		// Temporary function on the amount of influence a zombie has
+		// given the distance
+    if (zombie->type == blu_zombie) {
+      v->x += (1.0 / sqrt(robot.x - (zombie)->x + 1));
+      v->y += (1.0 / sqrt(robot.y - (zombie)->y + 1));
+    } else if (zombie->type == aqu_zombie) {
+      // does not matter to us really
+      v->x += (0.1 / sqrt(robot.x - (zombie)->x + 1));
+      v->y += (0.1 / sqrt(robot.y - (zombie)->y + 1));
+    } else if (zombie->type == gre_zombie) {
+      v->x += (0.5 / sqrt(robot.x - (zombie)->x + 1));
+      v->y += (0.5 / sqrt(robot.y - (zombie)->y + 1));
+    } else {
+      // matters little if we have to get the fruit anyways
+      v->x += (0.4 / sqrt(robot.x - (zombie)->x + 1));
+      v->y += (0.4 / sqrt(robot.y - (zombie)->y + 1));
+    }
+    zombie++;
+	}
+
+	// printf("v->x: %f\n", v->x);
+	// printf("v->y: %f\n", v->y);
+
+	// formulas subjected to tweaking
+	avoid[0] = proj(v, robot.angle);
+	avoid[1] = proj(v, reverse(robot.angle));
+	// convenient calculation for the sides
+	avoid[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
+	avoid[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
+	avoid[4] = 0;
+
+	return avoid;
+}
+
+double* knockBerryDown(void)
+{
+	double* knock = malloc(sizeof(double)*5);
 	knock[0] = 0;
 	knock[1] = 0;
 	knock[2] = 0;
@@ -675,7 +912,7 @@ double* explore(void)
 }
 
 
-int* avoidObstacles(RobotPos robot, Obji obs)
+double* avoidObstacles(RobotPos robot, Obji obs)
 {
 	printf("obstacle avoiding\n");
   Vector v;
@@ -735,7 +972,7 @@ int* avoidObstacles(RobotPos robot, Obji obs)
 	// printf("v->x: %f\n", v->x);
 	// printf("v->y: %f\n", v->y);
 
-	int* avoid = malloc(sizeof(int)*5);
+	double* avoid = malloc(sizeof(double)*5);
 
 
 	// formulas subjected to tweaking
@@ -765,19 +1002,13 @@ void printVotes(int * votes) {
 //
 // Gets all arguments from sensors and internal map
 // Parameter can be further explained here
-void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs)
+void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int energy, int armour)
 {
-
-	// int* foodVote = findFood(robot, food);
-	int* avoidObstaclesVote = avoidObstacles(robot, obs);
-	// double* exploreVote = explore();
-	// int* knockBerryVote = knockBerryDown();
-	// int* avoidZombiesVote = avoidZombies(robot, zombie);
-
-	// puts("Food vote: "); printVotes(foodVote);
-	puts("Obst vote: "); printVotes(avoidObstaclesVote);
-	// puts("Expl vote: "); printVotes(exploreVote)
-	// puts("Zomb vote: "); printVotes(avoidZombiesVote);
+	double* foodVote = findFood(robot, food, zombie, health, energy, armour);
+	double* avoidObstaclesVote = avoidObstacles(robot, obs);
+	double* exploreVote = explore();
+	double* knockBerryVote = knockBerryDown();
+	double* avoidZombiesVote = avoidZombies(robot, zombie, armour);
 
 	// for (int i = 0; i < 5; i++) {
 	// 	printf("%d\n", avoidZombiesVote[i]);
@@ -825,7 +1056,7 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs)
 	robot.angle = robot_angle;
 }
 
-void robot_control()
+void robot_control(int health, int energy, int armour)
 {
   // TODO
 	Obj ** detected = process_input();
@@ -845,9 +1076,12 @@ void robot_control()
 	// }
 
 	// call to arbiter
-	// motor output
-	arbiter(robot_pos, zombies, berries, obstacles);
 
+	// motor output
+	arbiter(robot_pos, zombies, berries, obstacles, health, energy, armour);
+
+
+	// motor output
 
 	free(zombies); free(berries); free(obstacles);
 	free(detected);
@@ -968,7 +1202,9 @@ int main(int argc, char **argv)
     // }
     // i++;
 
-    robot_control();
+    robot_control(robot_info.health, robot_info.energy, 0);
+    // initialize fruit table
+    fruit_init();
 
 
    //  if (wb_receiver_get_queue_length(rec) > 0)
