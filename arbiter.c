@@ -23,6 +23,13 @@ typedef struct robot_position {
   int angle; // 0 up, 1 right, 2 down, 3 left
 } RobotPos;
 
+// random number between lower and upper
+int randomN(int lower, int upper)
+{
+    int num = (rand() % (upper - lower + 1)) + lower;
+    return num;
+}
+
 // Adds the given array of vectors
 Vector vector_sum(Vector vectors, int len)
 // must be null-terminated
@@ -103,18 +110,18 @@ int* findFood(RobotPos robot, Posi food, int len)
 	// printf("v->x: %f\n", v->x);
 	// printf("v->y: %f\n", v->y);
 
-	int* avoid = malloc(sizeof(int)*5);
+	int* get = malloc(sizeof(int)*5);
 
 
 	// formulas subjected to tweaking
-	avoid[0] = proj(v, robot.angle);
-	avoid[1] = proj(v, reverse(robot.angle));
+	get[0] = proj(v, robot.angle);
+	get[1] = proj(v, reverse(robot.angle));
 	// convenient calculation for the sides
-	avoid[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
-	avoid[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
-	avoid[4] = 0;
+	get[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
+	get[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
+	get[4] = 0;
 
-	return avoid;
+	return get;
 }
 
 // Compute vector of the given zombies,
@@ -166,28 +173,53 @@ int* knockBerryDown(void)
 	return knock;
 }
 
-int* explore(void)
+double* explore(void)
 {
-	int* explore = malloc(sizeof(int)*5);
-	explore[0] = 0;
+	double* explore = malloc(sizeof(double)*5);
+
+	// The exploring will most often be moving forwards or backwards,
+	// but sometimes also turning
+	explore[0] = 0.27 + randomN(1, 8) / 10.0;
 	explore[1] = 0;
-	explore[2] = 0;
-	explore[3] = 0;
+	explore[2] = 0.1 + randomN(1, 3) / 10.0;
+	explore[3] = 0.1 + randomN(1, 3) / 10.0;
 	explore[4] = 0;
 
 	return explore;
 }
 
-int* avoidObstacles(void)
+int* avoidObstacles(RobotPos robot, Posi obs, int len)
 {
-	int* obstacles = malloc(sizeof(int)*5);
-	obstacles[0] = 0;
-	obstacles[1] = 0;
-	obstacles[2] = 0;
-	obstacles[3] = 0;
-	obstacles[4] = 0;
+	printf("obstacle avoiding\n");
+  Vector v;
+  v = malloc(sizeof(struct vector)); // must be freed
 
-	return obstacles;
+  v->x = 0;
+  v->y = 0;
+
+  for (int i = 0; i < len; i++) {
+		// Temporary function on the amount of influence obstacles have
+		// given the distance
+    v->x += (0.8 / sqrt(robot.x - (obs)->x + 1));
+    v->y += (0.8 / sqrt(robot.y - (obs)->y + 1));
+    obs++;
+	}
+
+	// printf("v->x: %f\n", v->x);
+	// printf("v->y: %f\n", v->y);
+
+	int* avoid = malloc(sizeof(int)*5);
+
+
+	// formulas subjected to tweaking
+	avoid[0] = proj(v, robot.angle);
+	avoid[1] = proj(v, reverse(robot.angle));
+	// convenient calculation for the sides
+	avoid[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
+	avoid[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
+	avoid[4] = 0;
+
+	return avoid;
 }
 
 
@@ -197,11 +229,11 @@ int* avoidObstacles(void)
 //
 // Gets all arguments from sensors and internal map
 // Parameter can be further explained here
-void arbiter(RobotPos robot, Posi zombie, int zombie_len, Posi food, int food_len)
+void arbiter(RobotPos robot, Posi zombie, int zombie_len, Posi food, int food_len, Posi obs, int obs_len)
 {
 	int* foodVote = findFood(robot, food, food_len);
-	int* avoidObstaclesVote = avoidObstacles();
-	int* exploreVote = explore();
+	int* avoidObstaclesVote = avoidObstacles(robot, obs, obs_len);
+	double* exploreVote = explore();
 	int* knockBerryVote = knockBerryDown();
 	int* avoidZombiesVote = avoidZombies(robot, zombie, zombie_len);
 
@@ -209,7 +241,7 @@ void arbiter(RobotPos robot, Posi zombie, int zombie_len, Posi food, int food_le
 	// 	printf("%d\n", avoidZombiesVote[i]);
 	// }
 
-	int* finalVotes = malloc(sizeof(int)*5);
+	double* finalVotes = malloc(sizeof(double)*5);
 	int winningIndex = 0;
 
 	for (int i = 0; i < 5; i++)
@@ -280,7 +312,7 @@ int main()
   food[1].x = -1;
   food[1].y = 4;
 
-	arbiter(current_pos, zombie, 2, food, 2);
+	arbiter(current_pos, zombie, 2, food, 2, zombie, 2);
 	// printf("Hello, World!\n");
 	return 0;
 }
