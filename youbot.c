@@ -109,9 +109,9 @@ void turn_right()
 
 
 // the ratio of time to turn vs time to travel a meter
-#define TURN_FACTOR (60)
+#define TURN_FACTOR (10)
 // discourage travelling backwards if possible
-#define BACK_FACTOR (10)
+#define BACK_FACTOR (5)
 
 int cameras[4] = {4, 8, 9, 10}; // cam ids of the cameras we're using
 // front, back, left, right
@@ -189,6 +189,11 @@ int round_to_angle_setting(int angle)
 
 /* returns vector of robot - obj in buffer v */
 void vectorCalc(RobotPos robot, Obj obj, Vector v) {
+  // printf("computing vector mag\n");
+  // printf("robot->x: %f\n", robot.x);
+  // printf("robot->y: %f\n", robot.y);
+  // printf("obj->x: %f\n", obj.x);
+  // printf("obj->y: %f\n", obj.y);
 	v->x = (robot.x - obj.x);
 	v->y = (robot.y - obj.y);
 }
@@ -873,11 +878,11 @@ double* explore(void)
 
 	// The exploring will most often be moving forwards or backwards,
 	// but sometimes also turning
-	explore[0] = 0.27 + randomN(1, 8) / 10.0;
+	explore[0] = 1.2 + randomN(1, 10) / 10.0;
 	explore[1] = 0;
-	explore[2] = 0.1 + randomN(1, 3) / 10.0;
-	explore[3] = 0.1 + randomN(1, 3) / 10.0;
-	explore[4] = 0;
+	explore[2] = 1.0 + randomN(1, 3) / 10.0;
+	explore[3] = 1.0 + randomN(1, 3) / 10.0;
+	explore[4] = -1.0;
 
 	return explore;
 }
@@ -901,6 +906,8 @@ double* avoidObstacles(RobotPos robot, Obji obs)
 	float mag;
 
 	while(obs->type != -1) {
+    // printf("obsx is %f\n", obs->x);
+    // printf("obsy is %f\n", obs->y);
 		if(obs->type == wall || obs->type == edge){
 			// obstacle is a flat plane; we want the opposing vector to be perpendicular to it
 			// calculate that vector
@@ -913,7 +920,6 @@ double* avoidObstacles(RobotPos robot, Obji obs)
 			} else if (robot.y <= obs->y1 && robot.y >= obs->y1) {
 				obs_point.x = (obs->x + obs->x1) / 2;
 				obs_point.y = robot.y;
-
 			} else {
 				// if not, nothing to worry about
 				obs++;
@@ -923,6 +929,7 @@ double* avoidObstacles(RobotPos robot, Obji obs)
 			// get the vector
 			vectorCalc(robot, obs_point, &vbuf);
 			mag = vectorMagnitude(&vbuf);
+      // printf("magnitude %f\n", mag);
 			if(mag != 0) {
 				v->x += vbuf.x / (pow(mag, 2.0));
 				v->y += vbuf.y / (pow(mag, 2.0));
@@ -930,8 +937,9 @@ double* avoidObstacles(RobotPos robot, Obji obs)
 		} else {
 			// not a wall (could be a stump or tree)
 			// get the vector
-			vectorCalc(robot, obs_point, &vbuf);
+			vectorCalc(robot, *obs, &vbuf);
 			mag = vectorMagnitude(&vbuf);
+      // printf("stump %f\n", mag);
 			if(mag != 0) {
 				v->x += vbuf.x / (pow(mag, 2.0));
 				v->y += vbuf.y / (pow(mag, 2.0));
@@ -939,11 +947,10 @@ double* avoidObstacles(RobotPos robot, Obji obs)
 		}
 		obs++;
 	}
-	// printf("v->x: %f\n", v->x);
-	// printf("v->y: %f\n", v->y);
+	printf("v->x: %f\n", v->x);
+	printf("v->y: %f\n", v->y);
 
 	double* avoid = malloc(sizeof(double)*5);
-
 
 	// formulas subjected to tweaking
 	avoid[0] = proj(v, robot.angle);
