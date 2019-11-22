@@ -642,8 +642,6 @@ int* avoidObstacles(void)
 // Parameter can be further explained here
 void arbiter(RobotPos robot, Obji zombie, int zombie_len, Obji food, int food_len, Obji obstacles, int obs_len)
 {
-	// TODO fix for changed pointer type
-
 	int* foodVote = findFood(robot, food, food_len);
 	int* avoidObstaclesVote = avoidObstacles();
 	int* exploreVote = explore();
