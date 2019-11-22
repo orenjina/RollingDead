@@ -297,7 +297,7 @@ int color_match(HsvColor * hsv)
 	if (hsv->h >= 220 && hsv->h <= 230 && hsv->s <= 0.4) type = wall;
 	else if (hsv->h >= 210 && hsv->h <= 230 && hsv->s <= 0.3 && hsv->v < 0.15) type = stump;
 	else if ((hsv->h >= 220 || hsv->h < 30) && hsv->s < 0.4 && hsv->v < 0.15) type = tree;
-
+	// if (hsv->h >= 230 && hsv->s <= 0.15 && hsv->v >= .25 && hsv->v <= 0.33) type = edge;
 
   return type;
 }
@@ -365,6 +365,9 @@ float estimate_vertical_distance(BoundingBox * obj)
 
 	} else if (obj->type == stump) {
 		y_true = 0.1;
+
+	} else if (obj->type == edge) {
+		y_true = 0.1;
 	}
 
 	if(y_px >= 32 && obj->type != wall) {
@@ -397,7 +400,7 @@ void calculate_XY_pos(BoundingBox * box, Obj * pos)
 		int yrange = box->y[1] - box->y[0];
 
 		if(yrange >= 32 && xrange <= yrange * 2) {
-			// we misclassified a stump as a tree
+			// we probably misclassified a stump as a tree
 			box->type = tree;
 		}
 	}
@@ -432,7 +435,7 @@ void calculate_XY_pos(BoundingBox * box, Obj * pos)
 /* Process a wall's positional information */
 void process_wall(BoundingBox * box, Obj * pos)
 {
-	pos->type = wall;
+	pos->type = box->type;
 
 	// get position data for each side of the wall
 	Obj tmp_pos;
@@ -735,6 +738,13 @@ void robot_control()
 	zombies = detected[0];
 	berries = detected[1];
 	obstacles = detected[2];
+
+	Obj * tmp = obstacles;
+	// for debugging
+	while((*tmp).type > 0) {
+		printf("%d, %f, %f\n", tmp->type, tmp->x, tmp->y);
+		tmp++;
+	}
 
 	// call to arbiter
 	// motor output
