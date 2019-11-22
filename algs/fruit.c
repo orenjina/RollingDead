@@ -16,16 +16,16 @@
 double fruit[TYPES][FUNCS];
 int fruitob[TYPES][FUNCS];
 
-void init();
+void fruit_init();
 void compute();
 
 int main() {
-  init();
+  fruit_init();
 }
 
 // Initialize the fruit double array with uniform probability
 // Initialize the fruitob double array with 0s
-void init() {
+void fruit_init() {
   for (int i = 0; i < TYPES; i++) {
     for (int j = 0; j < FUNCS; j++) {
       fruit[i][j] = 1 / FUNCS;
@@ -35,13 +35,13 @@ void init() {
 }
 
 // Update the observation table
-void update(int type, int func) {
+void fruit_update(int type, int func) {
   fruitob[type][func] += 1;
-  compute();
+  fruit_compute();
 }
 
 // Compute the probabilities according to observations
-void compute() {
+void fruit_compute() {
   for (int i = 0; i < TYPES; i++) {
     int types = 0;
     // Recrod which entries are non-zero

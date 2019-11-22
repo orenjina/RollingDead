@@ -69,7 +69,7 @@ int heuristic (double x1, double y1, double x2, double y2) {
 void inspectList(node* head, int num) {
 	printf("-------- begin inspect for list -------\n");
 	for (int i = 0; i < num; i++) {
-		printf("current node is: %x\n", *(head - i));
+		printf("current node is: %x\n", *(head + i));
 	}
 }
 
