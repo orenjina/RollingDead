@@ -104,11 +104,14 @@ void turn_right()
 #define FUNCS 4 // functions of fruits (+hp, +en, -en, +arm)
 #define PRI 0.7 // probability of the primary function
 #define SEC 0.3 // probability of the secondary function
-#define FRUIT_BASE 4 // There are 4 indices before types of fruits are in the enum
+#define FRUIT_BASE 4
+// There are 4 indices before types of fruits are in the enum
 
 
 // the ratio of time to turn vs time to travel a meter
-#define TURN_FACTOR (3)
+#define TURN_FACTOR (60)
+// discourage travelling backwards if possible
+#define BACK_FACTOR (10)
 
 int cameras[4] = {4, 8, 9, 10}; // cam ids of the cameras we're using
 // front, back, left, right
@@ -728,7 +731,6 @@ double fruit_util(int health, int energy, int armour, RobotPos robot, Obji zombi
 // So same structure but different parameters
 double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy, int armour)
 {
-	printf("finding berries\n");
   Vector v;
   v = malloc(sizeof(struct vector)); // must be freed
 
@@ -761,7 +763,7 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
 
 	// formulas subjected to tweaking
 	seek[0] = proj(v, robot.angle);
-	seek[1] = proj(v, reverse(robot.angle));
+	seek[1] = proj(v, reverse(robot.angle)) - BACK_FACTOR;
 	// convenient calculation for the sides
 	seek[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
 	seek[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
@@ -779,8 +781,6 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
 // but a multiplying factor is at work as well.
 double* avoidZombies(RobotPos robot, Obji zombie, int armour)
 {
-	printf("avoiding zombies\n");
-
 	double* avoid = malloc(sizeof(double)*5);
 
   // We don't care about zombies if we have armour
@@ -838,8 +838,8 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
   //   v->x += (2.0 / sqrt(robot.x - (zombie)->x + 1));
   //   v->y += (2.0 / sqrt(robot.y - (zombie)->y + 1));
 
-	printf("v->x: %f\n", v->x);
-	printf("v->y: %f\n", v->y);
+	// printf("v->x: %f\n", v->x);
+	// printf("v->y: %f\n", v->y);
 
 	// formulas subjected to tweaking
 	avoid[0] = proj(v, robot.angle);
@@ -850,6 +850,7 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
 	avoid[4] = 0;
 
 	return avoid;
+
 }
 
 double* knockBerryDown(void)
@@ -884,7 +885,6 @@ double* explore(void)
 
 double* avoidObstacles(RobotPos robot, Obji obs)
 {
-	printf("obstacle avoiding\n");
   Vector v;
   v = malloc(sizeof(struct vector)); // must be freed
 
@@ -960,9 +960,9 @@ double* avoidObstacles(RobotPos robot, Obji obs)
 
 
 
-void printVotes(int * votes) {
+void printVotes(double * votes) {
 	for(int i = 0; i < 5; i++) {
-			printf("%d ", votes[i]);
+			printf("%f ", votes[i]);
 	}
 	putchar('\n');
 }
@@ -974,7 +974,21 @@ void printVotes(int * votes) {
 // Parameter can be further explained here
 void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int energy, int armour)
 {
-  printf("arbiting\n");
+  // Make sure we commit to full turns before progressing through other commands
+  static int turning = 0;
+
+  if (turning != 0) {
+    if (turning > 0) {
+      // We were turning left
+      turn_left();
+      turning -= 1;
+    } else {
+      turn_right();
+      turning += 1;
+    }
+    return;
+  }
+
 	double* foodVote = findFood(robot, food, zombie, health, energy, armour);
 	double* avoidObstaclesVote = avoidObstacles(robot, obs);
 	double* exploreVote = explore();
@@ -985,10 +999,15 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
 	// 	printf("%d\n", avoidZombiesVote[i]);
 	// }
 
+  printf("vote results:\n");
+  printVotes(foodVote);
+  printVotes(avoidObstaclesVote);
+  printVotes(exploreVote);
+  printVotes(knockBerryVote);
+  printVotes(avoidZombiesVote);
 	// double* finalVotes = malloc(sizeof(double)*5);
 	double finalVotes[5];
 	int winningIndex = 0;
-
 	for (int i = 0; i < 5; i++)
 	{
 		finalVotes[i] = foodVote[i] + avoidObstaclesVote[i] + exploreVote[i] + knockBerryVote[i] + avoidZombiesVote[i];
@@ -1001,27 +1020,29 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
 	if (winningIndex == 0)
 	{
 		printf("forwards won\n");
-		// go_forward();
+		go_forward();
 	}
 	else if (winningIndex == 1)
 	{
 		printf("backwards won\n");
-		// go_backward();
+		go_backward();
 	}
 	else if (winningIndex == 2)
 	{
 		printf("left won\n");
-		// turn_left();
+    turning = 150;
+		turn_left();
 	}
 	else if (winningIndex == 3)
 	{
 		printf("right won\n");
-		// turn_right();
+    turning = -150;
+		turn_right();
 	}
 	else if (winningIndex == 4)
 	{
 		printf("do nothing won\n");
-		// stop();
+		stop();
 	}
 
 	robot.angle = robot_angle;
@@ -1053,7 +1074,6 @@ void robot_control(int health, int energy, int armour)
 
 
 	// motor output
-
 	free(zombies); free(berries); free(obstacles);
 	free(detected);
 }
@@ -1067,7 +1087,7 @@ void robot_control(int health, int energy, int armour)
 int main(int argc, char **argv)
 {
 
-  struct Robot robot_info = {100,100};
+  struct Robot robot_info = {100,100,0};
   wb_robot_init();
   base_init();
   arm_init();
@@ -1173,7 +1193,7 @@ int main(int argc, char **argv)
     // }
     // i++;
 
-    robot_control(robot_info.health, robot_info.energy, 0);
+    robot_control(robot_info.health, robot_info.energy, robot_info.armour);
     // initialize fruit table
     fruit_init();
 
