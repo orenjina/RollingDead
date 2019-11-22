@@ -168,12 +168,24 @@ float mmax(float a, float b, float c)
 }
 
 /* Rounds angle (in degrees) to nearest multiple of ANGLE_UNIT */
+// TODO remove?
 int round_to_angle_setting(int angle)
 {
   int remainder = angle % ANGLE_UNIT;
   if (remainder == 0)
     return angle;
   return (angle + ANGLE_UNIT - remainder);
+}
+
+/* returns vector of robot - obj in buffer v */
+void vectorCalc(RobotPos robot, Obj obj, Vector v) {
+	v->x = (robot.x - obj.x);
+	v->y = (robot.y - obj.y);
+}
+
+/* returns magnitude of v */
+float vectorMagnitude(Vector v) {
+	return (sqrt(pow(v->x, 2.0) + pow(v->y, 2.0)));
 }
 
 /* Adds the given array of vectors. */
@@ -213,6 +225,15 @@ double mag (Vector v) {
 // Return the reverse direction through simple arithmetic
 int reverse (int angle) {
 	return (angle + 2) % 4;
+}
+
+// Change vector to be perpendicular to itself
+void vectorPerpend(Vector v) {
+	float new_x = v->y;
+	float new_y = -1 * v->x;
+
+	v->x = new_x;
+	v->y = new_y;
 }
 
 // Do a simple projection and return the magnitude, assuming direction
@@ -352,7 +373,7 @@ void obs_update(BoundingBox * box, int type, int x, int y)
 float estimate_vertical_distance(BoundingBox * obj)
 {
   float y_true = 0;
-  int y_px = obj->y[1] - obj->y[0];
+  int y_px = obj->y[1] - obj->y[0] + 1;
 
   if(obj->type == gre_zombie || obj->type == blu_zombie ||
         obj->type == pur_zombie || obj->type == aqu_zombie) {
@@ -547,35 +568,40 @@ int* findFood(RobotPos robot, Obji food)
   v->x = 0;
   v->y = 0;
 
-	while((*food).type != -1) {
-		v->x += (-2.0 / sqrt(robot.x - food->x + 1));
-		v->y += (-2.0 / sqrt(robot.y - food->y + 1));
+  struct vector vbuf; // temporary info holding
+	float mag;
+
+	while(food->type != -1) {
+		printf("food xy %f, %f\n", food->x, food->y);
+		vectorCalc(robot, *food, &vbuf);
+		mag = vectorMagnitude(&vbuf);
+		if(mag != 0) {
+			v->x += -1 * vbuf.x / pow(mag, 2.0);
+			v->y += -1 * vbuf.y / pow(mag, 2.0);
+		}
+		// printf("This step xy: %f %f\n", vbuf.x, vbuf.y);
 		food++;
 	}
 
-  // for (int i = 0; i < len; i++) {
-	// 	// Temporary function on the amount of influence berries have
-	// 	// given the distance
-  //   v->x += (-2.0 / sqrt(robot.x - (food)->x + 1));
-  //   v->y += (-2.0 / sqrt(robot.y - (food)->y + 1));
-  //   food++;
-	// }
+	//  // Temporary function on the amount of influence a zombie has
+	// 	// given the distance (Glenn)
+  //   v->x += (2.0 / sqrt(robot.x - (zombie)->x + 1));
+  //   v->y += (2.0 / sqrt(robot.y - (zombie)->y + 1));
 
-	// printf("v->x: %f\n", v->x);
-	// printf("v->y: %f\n", v->y);
+	printf("v->x: %f\n", v->x);
+	printf("v->y: %f\n", v->y);
 
-	int* avoid = malloc(sizeof(int)*5);
-
+	int* seek = malloc(sizeof(int)*5);
 
 	// formulas subjected to tweaking
-	avoid[0] = proj(v, robot.angle);
-	avoid[1] = proj(v, reverse(robot.angle));
+	seek[0] = proj(v, robot.angle);
+	seek[1] = proj(v, reverse(robot.angle));
 	// convenient calculation for the sides
-	avoid[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
-	avoid[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
-	avoid[4] = 0;
+	seek[2] = proj(v, reverse(robot.angle + 1)) - TURN_FACTOR;
+	seek[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
+	seek[4] = 0;
 
-	return avoid;
+	return seek;
 }
 
 // Compute vector of the given zombies,
@@ -586,28 +612,27 @@ int* avoidZombies(RobotPos robot, Obji zombie)
   Vector v;
   v = malloc(sizeof(struct vector)); // must be freed
 
-  v->x = 0;
-  v->y = 0;
+  struct vector vbuf; // temporary info holding
+	float mag;
 
-	while((*zombie).type != -1) {
-    v->x += (2.0 / sqrt(robot.x - (zombie)->x + 1));
-    v->y += (2.0 / sqrt(robot.y - (zombie)->y + 1));
-    zombie++;
+	while(zombie->type != -1) {
+		vectorCalc(robot, *zombie, &vbuf);
+		mag = vectorMagnitude(&vbuf);
+		v->x += vbuf.x / pow(mag, 2.0);
+		v->y += vbuf.y / pow(mag, 2.0);
+		// printf("This step xy: %f %f\n", v->x, v->y);
+		zombie++;
 	}
-	//
-  // for (int i = 0; i < len; i++) {
-	// 	// Temporary function on the amount of influence a zombie has
-	// 	// given the distance
+
+	//  // Temporary function on the amount of influence a zombie has
+	// 	// given the distance (Glenn)
   //   v->x += (2.0 / sqrt(robot.x - (zombie)->x + 1));
   //   v->y += (2.0 / sqrt(robot.y - (zombie)->y + 1));
-  //   zombie++;
-	// }
 
-	// printf("v->x: %f\n", v->x);
-	// printf("v->y: %f\n", v->y);
+	printf("v->x: %f\n", v->x);
+	printf("v->y: %f\n", v->y);
 
 	int* avoid = malloc(sizeof(int)*5);
-
 
 	// formulas subjected to tweaking
 	avoid[0] = proj(v, robot.angle);
@@ -659,20 +684,54 @@ int* avoidObstacles(RobotPos robot, Obji obs)
   v->x = 0;
   v->y = 0;
 
+	// while(obs->type != -1) {
+	// 	v->x += (0.8 / sqrt(robot.x - obs->x + 1));
+	// 	v->y += (0.8 / sqrt(robot.y - obs->y + 1));
+	// 	obs++;
+	// }
+	struct vector vbuf;
+	Obj obs_point;
+	float mag;
+
 	while(obs->type != -1) {
-		v->x += (0.8 / sqrt(robot.x - obs->x + 1));
-		v->y += (0.8 / sqrt(robot.y - obs->y + 1));
+		if(obs->type == wall || obs->type == edge){
+			// obstacle is a flat plane; we want the opposing vector to be perpendicular to it
+			// calculate that vector
+
+			// first, see if there is a flat projection from the obstacle to us
+			if(robot.x <= obs->x1 && robot.x >= obs->x) {
+				obs_point.x = robot.x;
+				obs_point.y = (obs->y + obs->y1) / 2; // quick shortcut, could improve
+
+			} else if (robot.y <= obs->y1 && robot.y >= obs->y1) {
+				obs_point.x = (obs->x + obs->x1) / 2;
+				obs_point.y = robot.y;
+
+			} else {
+				// if not, nothing to worry about
+				obs++;
+				continue;
+			}
+
+			// get the vector
+			vectorCalc(robot, obs_point, &vbuf);
+			mag = vectorMagnitude(&vbuf);
+			if(mag != 0) {
+				v->x += vbuf.x / (pow(mag, 2.0));
+				v->y += vbuf.y / (pow(mag, 2.0));
+			}
+		} else {
+			// not a wall (could be a stump or tree)
+			// get the vector
+			vectorCalc(robot, obs_point, &vbuf);
+			mag = vectorMagnitude(&vbuf);
+			if(mag != 0) {
+				v->x += vbuf.x / (pow(mag, 2.0));
+				v->y += vbuf.y / (pow(mag, 2.0));
+			}
+		}
 		obs++;
 	}
-
-  // for (int i = 0; i < len; i++) {
-	// 	// Temporary function on the amount of influence obstacles have
-	// 	// given the distance
-  //   v->x += (0.8 / sqrt(robot.x - (obs)->x + 1));
-  //   v->y += (0.8 / sqrt(robot.y - (obs)->y + 1));
-  //   obs++;
-	// }
-
 	// printf("v->x: %f\n", v->x);
 	// printf("v->y: %f\n", v->y);
 
@@ -687,10 +746,19 @@ int* avoidObstacles(RobotPos robot, Obji obs)
 	avoid[3] = proj(v, reverse(robot.angle + 3)) - TURN_FACTOR;
 	avoid[4] = 0;
 
+	free(v);
+
 	return avoid;
 }
 
 
+
+void printVotes(int * votes) {
+	for(int i = 0; i < 5; i++) {
+			printf("%d ", votes[i]);
+	}
+	putchar('\n');
+}
 // Arbiter decides which action to take
 // For now ties go to the first tie one in array *CAN BE CHANGED*
 // [0]: forward, [1]: back, [2]: left, [3]: right, [4]: do nothing
@@ -699,53 +767,60 @@ int* avoidObstacles(RobotPos robot, Obji obs)
 // Parameter can be further explained here
 void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs)
 {
-	int* foodVote = findFood(robot, food);
+
+	// int* foodVote = findFood(robot, food);
 	int* avoidObstaclesVote = avoidObstacles(robot, obs);
-	double* exploreVote = explore();
-	int* knockBerryVote = knockBerryDown();
-	int* avoidZombiesVote = avoidZombies(robot, zombie);
+	// double* exploreVote = explore();
+	// int* knockBerryVote = knockBerryDown();
+	// int* avoidZombiesVote = avoidZombies(robot, zombie);
+
+	// puts("Food vote: "); printVotes(foodVote);
+	puts("Obst vote: "); printVotes(avoidObstaclesVote);
+	// puts("Expl vote: "); printVotes(exploreVote)
+	// puts("Zomb vote: "); printVotes(avoidZombiesVote);
 
 	// for (int i = 0; i < 5; i++) {
 	// 	printf("%d\n", avoidZombiesVote[i]);
 	// }
 
-	double* finalVotes = malloc(sizeof(double)*5);
+	// double* finalVotes = malloc(sizeof(double)*5);
+	double finalVotes[5];
 	int winningIndex = 0;
 
-	for (int i = 0; i < 5; i++)
-	{
-		finalVotes[i] = foodVote[i] + avoidObstaclesVote[i] + exploreVote[i] + knockBerryVote[i] + avoidZombiesVote[i];
-		if (finalVotes[i] > finalVotes[winningIndex])
-		{
-			winningIndex = i;
-		}
-	}
-
-	if (winningIndex == 0)
-	{
-		printf("forwards won\n");
-		// go_forward();
-	}
-	else if (winningIndex == 1)
-	{
-		printf("backwards won\n");
-		// go_backward();
-	}
-	else if (winningIndex == 2)
-	{
-		printf("left won\n");
-		// turn_left();
-	}
-	else if (winningIndex == 3)
-	{
-		printf("right won\n");
-		// turn_right();
-	}
-	else if (winningIndex == 4)
-	{
-		printf("do nothing won\n");
-		// stop();
-	}
+	// for (int i = 0; i < 5; i++)
+	// {
+	// 	finalVotes[i] = foodVote[i] + avoidObstaclesVote[i] + exploreVote[i] + knockBerryVote[i] + avoidZombiesVote[i];
+	// 	if (finalVotes[i] > finalVotes[winningIndex])
+	// 	{
+	// 		winningIndex = i;
+	// 	}
+	// }
+	//
+	// if (winningIndex == 0)
+	// {
+	// 	printf("forwards won\n");
+	// 	// go_forward();
+	// }
+	// else if (winningIndex == 1)
+	// {
+	// 	printf("backwards won\n");
+	// 	// go_backward();
+	// }
+	// else if (winningIndex == 2)
+	// {
+	// 	printf("left won\n");
+	// 	// turn_left();
+	// }
+	// else if (winningIndex == 3)
+	// {
+	// 	printf("right won\n");
+	// 	// turn_right();
+	// }
+	// else if (winningIndex == 4)
+	// {
+	// 	printf("do nothing won\n");
+	// 	// stop();
+	// }
 
 	robot.angle = robot_angle;
 }
