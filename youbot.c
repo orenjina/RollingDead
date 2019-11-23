@@ -908,14 +908,25 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
 
 }
 
-double* knockBerryDown(void)
+double* knockBerryDown(Obji food)
 {
+	// check if we are very close to a stump (to our front)
+	int in_front = 0;
+	struct vector v;
+	while(food->type != -1) {
+		if(food->type == stump && floor(food->x) == 0 && floor(food->y) == 0) {
+
+			break;
+		}
+		food++;
+	}
+
 	double* knock = malloc(sizeof(double)*5);
 	knock[0] = 0;
 	knock[1] = 0;
 	knock[2] = 0;
 	knock[3] = 0;
-	knock[4] = 0;
+	knock[4] = 10000 * in_front;
 	// knock[4] = 10000;
 
 	return knock;
