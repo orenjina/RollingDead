@@ -200,6 +200,11 @@ float vectorMagnitude(Vector v) {
 	return (sqrt(pow(v->x, 2.0) + pow(v->y, 2.0)));
 }
 
+/* returns magnitude of vx, vy */
+float vectorMag(double vx, double vy) {
+	return (sqrt(pow(vx, 2.0) + pow(vy, 2.0)));
+}
+
 /* Adds the given array of vectors. */
 Vector vector_sum(Vector * vectors)
 /* must be null-terminated. also frees the input vectors along the way */
@@ -606,7 +611,7 @@ void compute();
 void fruit_init() {
   for (int i = 0; i < TYPES; i++) {
     for (int j = 0; j < FUNCS; j++) {
-      fruit[i][j] = 1 / FUNCS;
+      fruit[i][j] = 1.0 / FUNCS;
       fruitob[i][j] = 0;
     }
   }
@@ -733,7 +738,10 @@ double fruit_util(int health, int energy, int armour, RobotPos robot, Obji zombi
     f[3] += sqrt(xd * xd + yd * yd);
     zombie++;
   }
-  return dot(f, fruit[type] - FRUIT_BASE, 4);
+  for (int i = 0; i < FRUIT_BASE; i++) {
+    printf("f is %f\n", f[i]);
+  }
+  return dot(f, fruit[type - FRUIT_BASE], 4);
 }
 
 // Do similar things as zombies but for food
@@ -746,8 +754,11 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
   v->y = 0;
 
 	while((*food).type != -1) {
-    double cons = fruit_util(health, energy, armour, robot, zombie, food->type);
-    // printf("const is : %f\n", cons);
+    double cons = fruit_util(health, energy, armour,
+      robot, zombie, food->type);
+    // extra factors
+    cons *= 10.0;
+    printf("cons now is %f\n", cons);
     double robx = robot.x - food->x;
     double roby = robot.y - food->y;
     if (robx >= 0) {
@@ -766,6 +777,9 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
     }
     food++;
 	}
+
+  printf("food: v->x: %f\n", v->x);
+  printf("food: v->y: %f\n", v->y);
 
 	double* seek = malloc(sizeof(double)*5);
 
@@ -813,12 +827,27 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
 		// given the distance
     double robx = robot.x - zombie->x;
     double roby = robot.y - zombie->y;
-    // printf("rob->x: %f\n", robx);
-    // printf("rob->y: %f\n", roby);
-    // Prevent bad sensoring from messing up the algorithm
-    if (fabs(robx) < 0.3) {
-      continue;
-    } else if (fabs(roby) < 0.3) {
+    double dist = vectorMag(robx, roby);
+
+    // Prevent function blow up
+    if (fabs(robx) < 1.0) {
+      if (robx > 0) {
+        robx = 1.0;
+      } else {
+        robx = -1.0;
+      }
+    }
+    if (fabs(roby) < 1.0) {
+      if (roby > 0) {
+        roby = 1.0;
+      } else {
+        roby = -1.0;
+      }
+    }
+    // Prevent bad sensoring or too insignificant objects
+    // from messing up the algorithm
+    if (fabs(robx) < 0.3 || robx > 5 || fabs(roby) < 0.3 || roby > 5) {
+      zombie++;
       continue;
     }
     double fac = 0;
@@ -826,12 +855,22 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
       fac = 1.4;
     } else if (zombie->type == aqu_zombie) {
       // can use 3 meter conversion, no need to worry if not near
-      fac = 2.2;
+      if (robx + roby > 1.5) {
+        // for this zombie, no threat unless it is really close
+        fac = 0.2;
+      } else {
+        fac = 2.2;
+      }
     } else if (zombie->type == gre_zombie) {
       fac = 1.8;
     } else {
       fac = 1.7;
     }
+    // Ignore things that are too close
+    if (robx + roby > 6) {
+      fac = 0.1;
+    }
+    fac /= 20.0;
     if (robx >= 0) {
       robx += 1;
       v->x += fac / sqrt(robx);
@@ -846,8 +885,8 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
       roby -= 1;
       v->y += - fac / sqrt(-roby);
     }
-    printf("zombiex %f\n", zombie->x);
-    printf("zombiey %f\n", zombie->y);
+    printf("zombiex %f\n", robx);
+    printf("zombiey %f\n", roby);
   	printf("v->x: %f\n", v->x);
   	printf("v->y: %f\n", v->y);
     zombie++;
@@ -890,10 +929,10 @@ double* explore(void)
 
 	// The exploring will most often be moving forwards or backwards,
 	// but sometimes also turning
-	explore[0] = 1.2 + randomN(1, 10) / 10.0;
+	explore[0] = 1.3 + randomN(1, 2) / 2.0;
 	explore[1] = 0.5;
-	explore[2] = 1.0 + randomN(1, 3) / 10.0;
-	explore[3] = 1.0 + randomN(1, 3) / 10.0;
+	explore[2] = 1.0 + randomN(1, 2) / 4.0;
+	explore[3] = 1.0 + randomN(1, 2) / 4.0;
 	explore[4] = 0.0;
 
 	return explore;
@@ -942,8 +981,8 @@ double* avoidObstacles(RobotPos robot, Obji obs)
 			mag = vectorMagnitude(&vbuf);
       // printf("magnitude %f\n", mag);
 			if(mag != 0) {
-				v->x += vbuf.x / (pow(mag, 2.0));
-				v->y += vbuf.y / (pow(mag, 2.0));
+				v->x += 2 * vbuf.x / (pow(mag, 3.0));
+				v->y += 2 * vbuf.y / (pow(mag, 3.0));
 			}
 		} else {
 			// not a wall (could be a stump or tree)
@@ -952,8 +991,8 @@ double* avoidObstacles(RobotPos robot, Obji obs)
 			mag = vectorMagnitude(&vbuf);
       // printf("stump %f\n", mag);
 			if(mag != 0) {
-				v->x += vbuf.x / (pow(mag, 2.0));
-				v->y += vbuf.y / (pow(mag, 2.0));
+				v->x += 2 * vbuf.x / (pow(mag, 3.0));
+				v->y += 2 * vbuf.y / (pow(mag, 3.0));
 			}
 		}
 		obs++;
@@ -1020,6 +1059,10 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
   last_energy = energy;
   last_health = health;
 
+  if (recently_turned) {
+    recently_turned--;
+  }
+
   // Make sure to take full turns using this code
   if (turning != 0) {
     if (turning > 0) {
@@ -1032,9 +1075,6 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
     }
     return;
   }
-  if (recently_turned) {
-    recently_turned--;
-  }
 
 	double* foodVote = findFood(robot, food, zombie, health, energy, armour);
 	double* avoidObstaclesVote = avoidObstacles(robot, obs);
@@ -1042,9 +1082,8 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
 	double* knockBerryVote = knockBerryDown();
 	double* avoidZombiesVote = avoidZombies(robot, zombie, armour);
   // printf("vote results:\n");
-  printVotes(foodVote);
+  // printVotes(foodVote);
   printVotes(avoidObstaclesVote);
-  printf("Zombie vote:\n");
   printVotes(avoidZombiesVote);
 	// double* finalVotes = malloc(sizeof(double)*5);
 	double finalVotes[5];
@@ -1063,7 +1102,7 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
 		}
 	}
 
-  printVotes(finalVotes);
+  // printVotes(finalVotes);
 
 	if (winningIndex == 0)
 	{
@@ -1078,15 +1117,15 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
 	else if (winningIndex == 2)
 	{
 		printf("left won\n");
-    turning = 150;
-    recently_turned = 200;
+    turning = 180;
+    recently_turned = 230;
 		turn_left();
 	}
 	else if (winningIndex == 3)
 	{
 		printf("right won\n");
-    turning = -150;
-    recently_turned = 200;
+    turning = -180;
+    recently_turned = 230;
 		turn_right();
 	}
 	else if (winningIndex == 4)
