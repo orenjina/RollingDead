@@ -793,6 +793,32 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
 	return seek;
 }
 
+int nearby_berry(Obj * food) {
+	struct vector v;
+
+	float m;
+	Obji closest_food = food;
+	float magmin = 10000;
+
+	while(food->type != -1) {
+		v.x = food->x;
+		v.y = food->y;
+
+		m = vectorMagnitude(&v);
+		if(m < magmin-1.5) {
+			magmin = m;
+			closest_food = food;
+		}
+
+		food++;
+	}
+
+	if(magmin < 1.0) {
+		return (closest_food->type);
+	} else {
+		return -1;
+	}
+}
 // The vectors given by the food spread out in the map, rather than
 // in the sensors. Mapped fruits are less accurate, and likely farther
 // away, so they are given less weights.
