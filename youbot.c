@@ -334,9 +334,9 @@ int color_match(HsvColor * hsv)
   else if (hsv->h >= 165 && hsv->h <= 185 && hsv->s >= 0.7) type = aqu_zombie;
   else if (hsv->h >= 200 && hsv->h <= 225 && hsv->s >= 0.7) type = blu_zombie;
 
-  else if (hsv->h >= 315 && hsv->h <= 340 && hsv->s <= 0.5) type = pin_berry;
+  // else if (hsv->h >= 315 && hsv->h <= 340 && hsv->s <= 0.5) type = pin_berry;
   else if (hsv->h >= 40  && hsv->h <= 60  && hsv->s >= 0.7) type = yel_berry;
-  else if (hsv->h >= 15  && hsv->h <= 35)                   type = ora_berry;
+  // else if (hsv->h >= 15  && hsv->h <= 35)                   type = ora_berry;
   else if (hsv->h >= 0   && hsv->h <= 10  && hsv->s >= 0.7) type = red_berry;
 
 	if (hsv->h >= 220 && hsv->h <= 230 && hsv->s <= 0.4) type = wall;
@@ -731,8 +731,10 @@ double fruit_util(int health, int energy, int armour, RobotPos robot, Obji zombi
     int xd = 1.0 / (robot.x - (zombie)->x);
     int yd = 1.0 / (robot.y - (zombie)->y);
     f[3] += sqrt(xd * xd + yd * yd);
+		printf("%d, %d\n", xd, yd);
     zombie++;
   }
+
   return dot(f, fruit[type] - FRUIT_BASE, 4);
 }
 
@@ -766,6 +768,7 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
     }
     food++;
 	}
+	printf("%f, %f\n", v->x, v->y);
 
 	double* seek = malloc(sizeof(double)*5);
 
@@ -1043,9 +1046,9 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
 	double* avoidZombiesVote = avoidZombies(robot, zombie, armour);
   // printf("vote results:\n");
   printVotes(foodVote);
-  printVotes(avoidObstaclesVote);
-  printf("Zombie vote:\n");
-  printVotes(avoidZombiesVote);
+  // printVotes(avoidObstaclesVote);
+  // printf("Zombie vote:\n");
+  // printVotes(avoidZombiesVote);
 	// double* finalVotes = malloc(sizeof(double)*5);
 	double finalVotes[5];
 	int winningIndex = 0;
@@ -1110,19 +1113,19 @@ void robot_control(int health, int energy, int armour)
 	berries = detected[1];
 	obstacles = detected[2];
 
-	// Obj * tmp = obstacles;
+	Obj * tmp = berries;
 	// for debugging
-	// while((*tmp).type > 0) {
-	// 	printf("%d, %f, %f\n", tmp->type, tmp->x, tmp->y);
-	// 	tmp++;
-	// }
+	while((*tmp).type > 0) {
+		printf("%d, %f, %f\n", tmp->type, tmp->x, tmp->y);
+		tmp++;
+	}
 
 	// call to arbiter
 
 	// motor output
   robot_pos.angle = robot_angle / 90;
   // printf("current angle is %d\n", robot_pos.angle);
-	arbiter(robot_pos, zombies, berries, obstacles, health, energy, armour);
+	// arbiter(robot_pos, zombies, berries, obstacles, health, energy, armour);
 
 
 	// motor output
