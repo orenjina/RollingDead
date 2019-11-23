@@ -757,8 +757,7 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
     double cons = fruit_util(health, energy, armour,
       robot, zombie, food->type);
     // extra factors
-    cons *= 10.0;
-    printf("cons now is %f\n", cons);
+    cons *= 100.0;
     double robx = robot.x - food->x;
     double roby = robot.y - food->y;
     if (robx >= 0) {
@@ -885,10 +884,10 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
       roby -= 1;
       v->y += - fac / sqrt(-roby);
     }
-    printf("zombiex %f\n", robx);
-    printf("zombiey %f\n", roby);
-  	printf("v->x: %f\n", v->x);
-  	printf("v->y: %f\n", v->y);
+    // printf("zombiex %f\n", robx);
+    // printf("zombiey %f\n", roby);
+  	// printf("v->x: %f\n", v->x);
+  	// printf("v->y: %f\n", v->y);
     zombie++;
 	}
 
@@ -1082,7 +1081,7 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
 	double* knockBerryVote = knockBerryDown();
 	double* avoidZombiesVote = avoidZombies(robot, zombie, armour);
   // printf("vote results:\n");
-  // printVotes(foodVote);
+  printVotes(foodVote);
   printVotes(avoidObstaclesVote);
   printVotes(avoidZombiesVote);
 	// double* finalVotes = malloc(sizeof(double)*5);
