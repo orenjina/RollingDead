@@ -793,6 +793,38 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
 	return seek;
 }
 
+// return the most nearby berry of this type
+Obj nearby_berry_with_type(Obj * food, int type) {
+	struct vector v;
+
+	float m;
+	Obji closest_food = food;
+	float magmin = 10000;
+
+	while(food->type != -1) {
+    if (food->type != type) {
+      continue;
+    }
+		v.x = food->x;
+		v.y = food->y;
+
+		m = vectorMagnitude(&v);
+		if(m < magmin-1.5) {
+			magmin = m;
+			closest_food = food;
+		}
+
+		food++;
+	}
+
+	if(magmin < 1.0) {
+		return closest_food;
+	} else {
+		return NULL;
+	}
+}
+
+// Return the type of the most nearby berry
 int nearby_berry(Obj * food) {
 	struct vector v;
 
@@ -852,7 +884,6 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
 		// given the distance
     double robx = robot.x - zombie->x;
     double roby = robot.y - zombie->y;
-    double dist = vectorMag(robx, roby);
 
     // Prevent function blow up
     if (fabs(robx) < 1.0) {
@@ -1066,6 +1097,17 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
   static int recently_turned = 0;
   static int last_health = 0;
   static int last_energy = 0;
+  static int last_armour = 0;
+  static int berry[2] = {-1, -1}; // Record the types of the closest berries
+  // So we can guess which berry we just consumed
+  // Berry goes out of sensor when consumed, so we use the second index
+  // As a good guess
+
+  int near = nearby_berry(food);
+  if (near > -1 && berry[0] != near) {
+    berry[1] = berry[0];
+    berry[0] = near;
+  }
 
   // printf("last_health is %d\n", last_health);
   // printf("cur_health is %d\n", health);
@@ -1085,15 +1127,22 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
     }
   } else if (last_health < health) {
     // Heal berry
-    // fruit_update(); depending on color, other things also accordingly
+    fruit_update(berry[1], 1);
   }
   if (last_energy > energy + 10) {
     // Energy drain berry
+    fruit_update(berry[1], 2);
   } else if (last_energy < energy) {
     // Energy berry
+    fruit_update(berry[1], 0);
+  }
+  if (last_armour > armour) {
+    // Armour berry
+    fruit_update(berry[1], 3);
   }
   last_energy = energy;
   last_health = health;
+  last_armour = armour;
 
   if (recently_turned) {
     recently_turned--;
