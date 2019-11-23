@@ -566,10 +566,12 @@ Obj ** process_input() {
 
 	    } else if (boxes[i].type == red_berry || boxes[i].type == pin_berry ||
 	    		boxes[i].type == yel_berry || boxes[i].type == ora_berry) {
+	    		boxes[i].type == yel_berry || boxes[i].type == ora_berry || boxes[i].type == stump) {
 
 	      calculate_XY_pos(&(boxes[i]), &(berries[blen++]));
 
 	    } else if (boxes[i].type == edge || boxes[i].type == tree || boxes[i].type == stump) {
+	    } else if (boxes[i].type == edge || boxes[i].type == tree) {
 
 	      calculate_XY_pos(&(boxes[i]), &(obstacles[olen++]));
 	    }
@@ -588,6 +590,36 @@ void printVotes(double * votes) {
 			printf("%f ", votes[i]);
 	}
 	putchar('\n');
+}
+
+void knockBerryMotor(int time_start) {
+	int threshold = 10;
+	int masterTime = time_start;
+	masterTime++;
+	while(masterTime <= 4*threshold) {
+		if (masterTime == 10 + threshold)
+		{
+		  arm_set_sub_arm_rotation(ARM1, -0.8);
+		}
+		else if (masterTime == 2*threshold)
+		{
+		  arm_set_sub_arm_rotation(ARM2, -10);
+		  arm_set_sub_arm_rotation(ARM3, -0.6);
+		  arm_set_sub_arm_rotation(ARM4, 0.5);
+		}
+		else if (masterTime == 3*threshold)
+		{
+		  arm_set_sub_arm_rotation(ARM1, +2.9);
+		}
+		else if (masterTime == 4*threshold)
+		{
+		    //arm_set_sub_arm_rotation(ARM2, -1.5);
+		   arm_set_sub_arm_rotation(ARM3, -1.0);
+		   arm_set_sub_arm_rotation(ARM1, -2.7);
+		}
+
+		step();
+	}
 }
 
 // fruit[int][int] double :
@@ -751,44 +783,56 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
   v = malloc(sizeof(struct vector)); // must be freed
   v->x = 0;
   v->y = 0;
-
-	while((*food).type != -1) {
-    double cons = fruit_util(health, energy, armour,
-      robot, zombie, food->type);
-    // extra factors
-    cons *= 100.0;
-    double robx = robot.x - food->x;
-    double roby = robot.y - food->y;
-    if (robx >= 0) {
-      robx += 1;
-  		v->x += -cons / sqrt(robx);
-    } else {
-      robx -= 1;
-  		v->x += cons / sqrt(-robx);
-    }
-    if (roby >= 0) {
-      roby += 1;
-  		v->y += -cons / sqrt(roby);
-    } else {
-      roby -= 1;
-  		v->y += cons / sqrt(-roby);
-    }
-    food++;
-	}
-	printf("%f, %f\n", v->x, v->y);
-
-  printf("food: v->x: %f\n", v->x);
-  printf("food: v->y: %f\n", v->y);
-
+  // Vector v;
+  // v = malloc(sizeof(struct vector)); // must be freed
+  // v->x = 0;
+  // v->y = 0;
+	struct vector v;
 	double* seek = malloc(sizeof(double)*5);
 
+	float max_value = -1;
+	float val;
+	Obj * best_food = food;
+
+	while((*food).type != -1) {
+		double cons = 0.2;
+    // double cons = fruit_util(health, energy, armour,
+    //   robot, zombie, food->type);
+    // extra factors
+    cons *= 100.0;
+		v.x = food->x;
+		v.y = food->y;
+		val = cons / vectorMagnitude(&v);
+
+		if(val > max_value) {
+			max_value = val;
+			best_food = food;
+		}
+    food++;
+	}
+
+	if(best_food->type == -1) {
+		// no food
+		for(int i = 0; i < 5; i++) seek[i] = 0;
+		return seek;
+	}
+
+	v.x = best_food->x;
+	v.y = best_food->y;
+
+  printf("food: v->x: %f\n", v.x);
+  printf("food: v->y: %f\n", v.y);
+
+
 	// formulas subjected to tweaking
-	seek[0] = proj(v, robot.angle);
-	seek[1] = proj(v, reverse(robot.angle));
+	seek[0] = proj(&v, robot.angle)  / 10;
+	seek[1] = proj(&v, reverse(robot.angle))  / 10;
 	// convenient calculation for the sides
-	seek[2] = proj(v, reverse(robot.angle + 1));
-	seek[3] = proj(v, reverse(robot.angle + 3));
+	seek[2] = proj(&v, reverse(robot.angle + 1)) / 10;
+	seek[3] = proj(&v, reverse(robot.angle + 3)) / 10;
 	seek[4] = 0;
+
+
 
 	return seek;
 }
