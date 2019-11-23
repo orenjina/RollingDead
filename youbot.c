@@ -339,9 +339,9 @@ int color_match(HsvColor * hsv)
   else if (hsv->h >= 165 && hsv->h <= 185 && hsv->s >= 0.7) type = aqu_zombie;
   else if (hsv->h >= 200 && hsv->h <= 225 && hsv->s >= 0.7) type = blu_zombie;
 
-  // else if (hsv->h >= 315 && hsv->h <= 340 && hsv->s <= 0.5) type = pin_berry;
+  else if (hsv->h >= 315 && hsv->h <= 340 && hsv->s <= 0.5) type = pin_berry;
   else if (hsv->h >= 40  && hsv->h <= 60  && hsv->s >= 0.7) type = yel_berry;
-  // else if (hsv->h >= 15  && hsv->h <= 35)                   type = ora_berry;
+  else if (hsv->h >= 15  && hsv->h <= 35)                   type = ora_berry;
   else if (hsv->h >= 0   && hsv->h <= 10  && hsv->s >= 0.7) type = red_berry;
 
 	if (hsv->h >= 220 && hsv->h <= 230 && hsv->s <= 0.4) type = wall;
@@ -566,12 +566,10 @@ Obj ** process_input() {
 
 	    } else if (boxes[i].type == red_berry || boxes[i].type == pin_berry ||
 	    		boxes[i].type == yel_berry || boxes[i].type == ora_berry) {
-	    		boxes[i].type == yel_berry || boxes[i].type == ora_berry || boxes[i].type == stump) {
 
 	      calculate_XY_pos(&(boxes[i]), &(berries[blen++]));
 
 	    } else if (boxes[i].type == edge || boxes[i].type == tree || boxes[i].type == stump) {
-	    } else if (boxes[i].type == edge || boxes[i].type == tree) {
 
 	      calculate_XY_pos(&(boxes[i]), &(obstacles[olen++]));
 	    }
@@ -592,33 +590,30 @@ void printVotes(double * votes) {
 	putchar('\n');
 }
 
-void knockBerryMotor(int time_start) {
-	int threshold = 10;
-	int masterTime = time_start;
-	masterTime++;
-	while(masterTime <= 4*threshold) {
-		if (masterTime == 10 + threshold)
-		{
-		  arm_set_sub_arm_rotation(ARM1, -0.8);
-		}
-		else if (masterTime == 2*threshold)
-		{
-		  arm_set_sub_arm_rotation(ARM2, -10);
-		  arm_set_sub_arm_rotation(ARM3, -0.6);
-		  arm_set_sub_arm_rotation(ARM4, 0.5);
-		}
-		else if (masterTime == 3*threshold)
-		{
-		  arm_set_sub_arm_rotation(ARM1, +2.9);
-		}
-		else if (masterTime == 4*threshold)
-		{
-		    //arm_set_sub_arm_rotation(ARM2, -1.5);
-		   arm_set_sub_arm_rotation(ARM3, -1.0);
-		   arm_set_sub_arm_rotation(ARM1, -2.7);
+int nearby_berry(Obj * food) {
+	struct vector v;
+
+	float m;
+	Obji closest_food = food;
+	float magmin = 10000;
+
+	while(food->type != -1) {
+		v.x = food->x;
+		v.y = food->y;
+
+		m = vectorMagnitude(&v);
+		if(m < magmin-1.5) {
+			magmin = m;
+			closest_food = food;
 		}
 
-		step();
+		food++;
+	}
+
+	if(magmin < 1.0) {
+		return (closest_food->type);
+	} else {
+		return -1;
 	}
 }
 
@@ -768,10 +763,11 @@ double fruit_util(int health, int energy, int armour, RobotPos robot, Obji zombi
     int xd = 1.0 / (robot.x - (zombie)->x);
     int yd = 1.0 / (robot.y - (zombie)->y);
     f[3] += sqrt(xd * xd + yd * yd);
-		printf("%d, %d\n", xd, yd);
     zombie++;
   }
-
+  for (int i = 0; i < FRUIT_BASE; i++) {
+    printf("f is %f\n", f[i]);
+  }
   return dot(f, fruit[type - FRUIT_BASE], 4);
 }
 
@@ -783,86 +779,47 @@ double* findFood(RobotPos robot, Obji food, Obji zombie, int health, int energy,
   v = malloc(sizeof(struct vector)); // must be freed
   v->x = 0;
   v->y = 0;
-  // Vector v;
-  // v = malloc(sizeof(struct vector)); // must be freed
-  // v->x = 0;
-  // v->y = 0;
-	struct vector v;
-	double* seek = malloc(sizeof(double)*5);
-
-	float max_value = -1;
-	float val;
-	Obj * best_food = food;
 
 	while((*food).type != -1) {
-		double cons = 0.2;
-    // double cons = fruit_util(health, energy, armour,
-    //   robot, zombie, food->type);
+    double cons = fruit_util(health, energy, armour,
+      robot, zombie, food->type);
     // extra factors
-    cons *= 100.0;
-		v.x = food->x;
-		v.y = food->y;
-		val = cons / vectorMagnitude(&v);
-
-		if(val > max_value) {
-			max_value = val;
-			best_food = food;
-		}
+    cons *= 4.0;
+    double robx = robot.x - food->x;
+    double roby = robot.y - food->y;
+    if (robx >= 0) {
+      robx += 1;
+  		v->x += -cons / sqrt(robx);
+    } else {
+      robx -= 1;
+  		v->x += cons / sqrt(-robx);
+    }
+    if (roby >= 0) {
+      roby += 1;
+  		v->y += -cons / sqrt(roby);
+    } else {
+      roby -= 1;
+  		v->y += cons / sqrt(-roby);
+    }
     food++;
 	}
 
-	if(best_food->type == -1) {
-		// no food
-		for(int i = 0; i < 5; i++) seek[i] = 0;
-		return seek;
-	}
+  printf("food: v->x: %f\n", v->x);
+  printf("food: v->y: %f\n", v->y);
 
-	v.x = best_food->x;
-	v.y = best_food->y;
-
-  printf("food: v->x: %f\n", v.x);
-  printf("food: v->y: %f\n", v.y);
-
+	double* seek = malloc(sizeof(double)*5);
 
 	// formulas subjected to tweaking
-	seek[0] = proj(&v, robot.angle)  / 10;
-	seek[1] = proj(&v, reverse(robot.angle))  / 10;
+	seek[0] = proj(v, robot.angle);
+	seek[1] = proj(v, reverse(robot.angle));
 	// convenient calculation for the sides
-	seek[2] = proj(&v, reverse(robot.angle + 1)) / 10;
-	seek[3] = proj(&v, reverse(robot.angle + 3)) / 10;
+	seek[2] = proj(v, reverse(robot.angle + 1));
+	seek[3] = proj(v, reverse(robot.angle + 3));
 	seek[4] = 0;
-
-
 
 	return seek;
 }
 
-int nearby_berry(Obj * food) {
-	struct vector v;
-
-	float m;
-	Obji closest_food = food;
-	float magmin = 10000;
-
-	while(food->type != -1) {
-		v.x = food->x;
-		v.y = food->y;
-
-		m = vectorMagnitude(&v);
-		if(m < magmin-1.5) {
-			magmin = m;
-			closest_food = food;
-		}
-
-		food++;
-	}
-
-	if(magmin < 1.0) {
-		return (closest_food->type);
-	} else {
-		return -1;
-	}
-}
 // The vectors given by the food spread out in the map, rather than
 // in the sensors. Mapped fruits are less accurate, and likely farther
 // away, so they are given less weights.
@@ -978,25 +935,14 @@ double* avoidZombies(RobotPos robot, Obji zombie, int armour)
 
 }
 
-double* knockBerryDown(Obji food)
+double* knockBerryDown(void)
 {
-	// check if we are very close to a stump (to our front)
-	int in_front = 0;
-	struct vector v;
-	while(food->type != -1) {
-		if(food->type == stump && floor(food->x) == 0 && floor(food->y) == 0) {
-
-			break;
-		}
-		food++;
-	}
-
 	double* knock = malloc(sizeof(double)*5);
 	knock[0] = 0;
 	knock[1] = 0;
 	knock[2] = 0;
 	knock[3] = 0;
-	knock[4] = 10000 * in_front;
+	knock[4] = 0;
 	// knock[4] = 10000;
 
 	return knock;
@@ -1110,6 +1056,17 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
   static int recently_turned = 0;
   static int last_health = 0;
   static int last_energy = 0;
+  static int last_armour = 0;
+  static int berry[2] = {-1, -1}; // Record the types of the closest berries
+  // So we can guess which berry we just consumed
+  // Berry goes out of sensor when consumed, so we use the second index
+  // As a good guess
+
+  int near = nearby_berry(food);
+  if (near > -1 && berry[0] != near) {
+    berry[1] = berry[0];
+    berry[0] = near;
+  }
 
   // printf("last_health is %d\n", last_health);
   // printf("cur_health is %d\n", health);
@@ -1129,15 +1086,22 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
     }
   } else if (last_health < health) {
     // Heal berry
-    // fruit_update(); depending on color, other things also accordingly
+    fruit_update(berry[1], 1);
   }
   if (last_energy > energy + 10) {
     // Energy drain berry
+    fruit_update(berry[1], 2);
   } else if (last_energy < energy) {
     // Energy berry
+    fruit_update(berry[1], 0);
+  }
+  if (last_armour > armour) {
+    // Armour berry
+    fruit_update(berry[1], 3);
   }
   last_energy = energy;
   last_health = health;
+  last_armour = armour;
 
   if (recently_turned) {
     recently_turned--;
@@ -1163,9 +1127,8 @@ void arbiter(RobotPos robot, Obji zombie, Obji food, Obji obs, int health, int e
 	double* avoidZombiesVote = avoidZombies(robot, zombie, armour);
   // printf("vote results:\n");
   printVotes(foodVote);
-  // printVotes(avoidObstaclesVote);
-  // printf("Zombie vote:\n");
-  // printVotes(avoidZombiesVote);
+  printVotes(avoidObstaclesVote);
+  printVotes(avoidZombiesVote);
 	// double* finalVotes = malloc(sizeof(double)*5);
 	double finalVotes[5];
 	int winningIndex = 0;
@@ -1230,19 +1193,19 @@ void robot_control(int health, int energy, int armour)
 	berries = detected[1];
 	obstacles = detected[2];
 
-	Obj * tmp = berries;
+	// Obj * tmp = obstacles;
 	// for debugging
-	while((*tmp).type > 0) {
-		printf("%d, %f, %f\n", tmp->type, tmp->x, tmp->y);
-		tmp++;
-	}
+	// while((*tmp).type > 0) {
+	// 	printf("%d, %f, %f\n", tmp->type, tmp->x, tmp->y);
+	// 	tmp++;
+	// }
 
 	// call to arbiter
 
 	// motor output
   robot_pos.angle = robot_angle / 90;
   // printf("current angle is %d\n", robot_pos.angle);
-	// arbiter(robot_pos, zombies, berries, obstacles, health, energy, armour);
+	arbiter(robot_pos, zombies, berries, obstacles, health, energy, armour);
 
 
 	// motor output
